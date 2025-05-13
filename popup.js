@@ -2,7 +2,6 @@
 
 document.addEventListener('DOMContentLoaded', async () => {
 	const domainDisplay = document.getElementById('current-domain');
-	const ruleDomainDisplay = document.getElementById('rule-domain-display');
 	const ruleModeSelect = document.getElementById('rule-mode');
 	const ttlSection = document.getElementById('ttl-section');
 	const ttlValueInput = document.getElementById('ttl-value');
@@ -47,7 +46,6 @@ document.addEventListener('DOMContentLoaded', async () => {
 		if (disabled) {
 			currentRuleText.textContent = 'Extension is globally disabled.';
 			domainDisplay.textContent = currentDomain || 'N/A'; // Keep domain if loaded
-			ruleDomainDisplay.textContent = currentDomain || 'this domain';
 		} else {
 			// If enabling, re-load domain rule to refresh display
 			if (currentDomain) {
@@ -118,16 +116,13 @@ document.addEventListener('DOMContentLoaded', async () => {
 					currentDomain = url.hostname;
 					activeTabId = tab.id;
 					domainDisplay.textContent = currentDomain;
-					ruleDomainDisplay.textContent = currentDomain;
 				} else {
 					domainDisplay.textContent = 'N/A (Unsupported Page)';
-					ruleDomainDisplay.textContent = 'this page';
 					disableControls('Unsupported page protocol.');
 					return false;
 				}
 			} else {
 				domainDisplay.textContent = 'N/A';
-				ruleDomainDisplay.textContent = 'this page';
 				disableControls('Unable to determine current page.');
 				return false;
 			}
@@ -135,7 +130,6 @@ document.addEventListener('DOMContentLoaded', async () => {
 		} catch (error) {
 			console.error('Error getting active tab:', error);
 			domainDisplay.textContent = 'Error';
-			ruleDomainDisplay.textContent = 'this page';
 			disableControls('Could not get tab information.');
 			return false;
 		}
@@ -165,7 +159,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 		} else if (rule.mode === 'blacklist') {
 			currentRuleText.textContent = `Rule: Always Clear.`;
 		} else if (rule.mode === 'allow') {
-			if (rule.ttl && rule.expiresAt) {
+			if (typeof rule.expiresAt === 'number') {
 				const remainingMinutes = Math.max(0, Math.round((rule.expiresAt - Date.now()) / 60000));
 				currentRuleText.textContent = `Rule: Temporarily Allowed. Expires in ~${remainingMinutes} min.`;
 			} else {

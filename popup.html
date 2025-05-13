@@ -7,59 +7,63 @@
     <body>
         <h1>AutoClear Settings</h1>
 
-        <div id="global-controls" class="control-group">
-            <h2>Global Settings</h2>
-            <div>
-                <label for="global-enable-toggle">Enable AutoClearExtension:</label>
-                <input type="checkbox" id="global-enable-toggle" />
+        <fieldset id="global-settings-section">
+            <legend>Global Settings</legend>
+            <div id="global-controls" class="control-group">
+                <div>
+                    <label for="global-enable-toggle">Enable AutoClearExtension:</label>
+                    <input type="checkbox" id="global-enable-toggle" />
+                </div>
+                <button id="reset-all-rules-button">Reset All Rules</button>
+                <p id="global-status-message" class="status-message"></p>
             </div>
-            <button id="reset-all-rules-button">Reset All Rules</button>
-            <p id="global-status-message" class="status-message"></p>
-        </div>
+        </fieldset>
 
         <hr />
 
-        <div id="domain-info">
-            <p>Current Domain: <strong id="current-domain"></strong></p>
-            <p>Status: <span id="current-status"></span></p>
-        </div>
-        <div id="controls">
-            <button id="toggle-button">Toggle Status</button>
-        </div>
-
-        <div id="rule-editor">
-            <h2>Rule for <span id="rule-domain-display">this domain</span>:</h2>
-
-            <label for="rule-mode">Mode:</label>
-            <select id="rule-mode">
-                <option value="off">Disable (Do Nothing)</option>
-                <option value="blacklist">Always Clear (Blacklist)</option>
-                <option value="allow">Temporarily Allow</option>
-            </select>
-
-            <div id="ttl-section" style="display: none">
-                <label for="ttl-value">Allow for (minutes):</label>
-                <input type="number" id="ttl-value" min="1" value="60" />
+        <fieldset id="current-domain-rule-section">
+            <legend>Rule for Current Domain</legend>
+            <div id="domain-info">
+                <p>Current Domain: <strong id="current-domain">Loading...</strong></p>
+                <!-- The old "Status: <span id="current-status"></span>" is removed -->
             </div>
 
-            <button id="save-rule-button">Save Rule</button>
-            <p id="status-message" class="status-message"></p>
-        </div>
+            <div id="rule-editor">
+                <!-- The H2 "Rule for <span id="rule-domain-display">this domain</span>:" is removed as fieldset legend serves this purpose -->
+                <label for="rule-mode">Mode:</label>
+                <select id="rule-mode">
+                    <option value="off">Disable (Do Nothing)</option>
+                    <option value="blacklist">Always Clear (Blacklist)</option>
+                    <option value="allow">Temporarily Allow</option>
+                </select>
 
-        <div id="current-rule-display" style="margin-top: 15px">
-            <h3>Current Effective Rule:</h3>
-            <p id="current-rule-text">Loading rule...</p>
-        </div>
+                <div id="ttl-section" style="display: none">
+                    <label for="ttl-value">Allow for (minutes):</label>
+                    <input type="number" id="ttl-value" min="1" value="60" />
+                </div>
+
+                <button id="save-rule-button">Save Rule</button>
+                <p id="status-message" class="status-message"></p>
+            </div>
+
+            <div id="current-rule-display" style="margin-top: 10px">
+                <!-- Adjusted margin -->
+                <h3>Current Effective Rule:</h3>
+                <p id="current-rule-text">Loading rule...</p>
+            </div>
+        </fieldset>
 
         <hr />
 
-        <div id="stored-rules-summary-section" class="control-group">
-            <h2>Stored Rules Summary</h2>
-            <ul id="stored-rules-list"></ul>
-            <p id="no-rules-stored-message" style="display: none">
-                No specific domain rules are currently stored.
-            </p>
-        </div>
+        <fieldset id="stored-rules-summary-fieldset">
+            <legend>Stored Rules Summary</legend>
+            <div id="stored-rules-summary-section" class="control-group">
+                <ul id="stored-rules-list"></ul>
+                <p id="no-rules-stored-message" style="display: none">
+                    No specific domain rules are currently stored.
+                </p>
+            </div>
+        </fieldset>
 
         <script src="popup.js"></script>
     </body>
