@@ -15,6 +15,10 @@ document.addEventListener('DOMContentLoaded', async () => {
 	const resetAllRulesButton = document.getElementById('reset-all-rules-button');
 	const globalStatusMessage = document.getElementById('global-status-message');
 
+	// Stored rules summary elements
+	const storedRulesList = document.getElementById('stored-rules-list');
+	const noRulesStoredMessage = document.getElementById('no-rules-stored-message');
+
 	let currentDomain = '';
 	let activeTabId = null;
 	let extensionEnabled = true; // Default to true, will be updated from storage
@@ -80,16 +84,19 @@ document.addEventListener('DOMContentLoaded', async () => {
 		try {
 			// Preserve the extensionEnabled flag, clear only domainRules
 			const settings = await chrome.storage.local.get('extensionEnabled');
-			await chrome.storage.local.clear(); // Clears everything
-			await chrome.storage.local.set({ extensionEnabled: settings.extensionEnabled }); // Restore enabled flag
+			// Instead of chrome.storage.local.clear(), explicitly remove domainRules
+			await chrome.storage.local.remove('domainRules');
+			// No need to set extensionEnabled again if it was preserved by not clearing all.
+			// If domainRules was the only other thing, this is fine.
+			// If there were other top-level keys, they would remain.
+			// For this extension, we only have domainRules and extensionEnabled at the top level.
 
 			globalStatusMessage.textContent = 'All domain rules have been reset.';
 			globalStatusMessage.className = 'status-message success';
-			// Reload current domain's rule display (it should be default now)
-			if (currentDomain) {
-				await loadDomainRule();
-			}
-			// Notify background to update badge for current domain
+
+			await loadDomainRule(); // Reload current domain's rule display
+			await displayStoredRulesSummary(); // Refresh the summary list
+
 			if (typeof chrome.runtime.sendMessage === 'function') {
 				chrome.runtime.sendMessage({ action: "refreshBadgeForDomain", domain: currentDomain });
 			}
@@ -208,10 +215,14 @@ document.addEventListener('DOMContentLoaded', async () => {
 				ttlValueInput.value = 60; // Default TTL
 			}
 			updateCurrentRuleDisplay(domainRule);
-			// Enable controls after loading
-			ruleModeSelect.disabled = false;
-			ttlValueInput.disabled = ruleModeSelect.value !== 'allow';
-			saveRuleButton.disabled = false;
+			// Enable controls after loading, only if extension is enabled
+			if (extensionEnabled) {
+				ruleModeSelect.disabled = false;
+				ttlValueInput.disabled = ruleModeSelect.value !== 'allow';
+				saveRuleButton.disabled = false;
+			} else {
+				updatePerDomainControlsState(); // Ensure they are disabled if extension is off
+			}
 
 		} catch (error) {
 			console.error('Error loading domain rule:', error);
@@ -219,6 +230,58 @@ document.addEventListener('DOMContentLoaded', async () => {
 			statusMessage.className = 'status-message error';
 			disableControls('Error loading rule.');
 			updateCurrentRuleDisplay(null);
+		}
+	}
+
+	async function displayStoredRulesSummary() {
+		if (!extensionEnabled) {
+			storedRulesList.innerHTML = ''; // Clear previous list
+			noRulesStoredMessage.textContent = 'Extension is globally disabled. Rule summary not available.';
+			noRulesStoredMessage.style.display = 'block';
+			return;
+		}
+		try {
+			const result = await chrome.storage.local.get('domainRules');
+			const allRules = result.domainRules || {};
+
+			storedRulesList.innerHTML = ''; // Clear previous list
+
+			const domains = Object.keys(allRules);
+			if (domains.length === 0) {
+				noRulesStoredMessage.textContent = 'No specific domain rules are currently stored.';
+				noRulesStoredMessage.style.display = 'block';
+				return;
+			}
+
+			noRulesStoredMessage.style.display = 'none';
+
+			domains.sort().forEach(domain => {
+				const rule = allRules[domain];
+				const listItem = document.createElement('li');
+				let ruleDetails = `<strong>${domain}:</strong> ${rule.mode}`;
+
+				if (rule.mode === 'allow' && rule.expiresAt) {
+					const now = Date.now();
+					const remainingMs = rule.expiresAt - now;
+					if (remainingMs <= 0) {
+						ruleDetails += ' (expired)';
+					} else {
+						const remainingMinutes = Math.round(remainingMs / 60000);
+						ruleDetails += ` (~${remainingMinutes} min left)`;
+					}
+				} else if (rule.mode === 'allow' && rule.ttlMinutes) {
+					ruleDetails += ` (TTL: ${rule.ttlMinutes} min - not yet activated/visited)`;
+				}
+
+				listItem.innerHTML = ruleDetails;
+				storedRulesList.appendChild(listItem);
+			});
+		} catch (error) {
+			console.error('Error displaying stored rules summary:', error);
+			storedRulesList.innerHTML = '';
+			noRulesStoredMessage.textContent = 'Error loading stored rules summary.';
+			noRulesStoredMessage.className = 'status-message error'; // Reuse class if appropriate
+			noRulesStoredMessage.style.display = 'block';
 		}
 	}
 
@@ -274,6 +337,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 			statusMessage.textContent = 'Rule updated successfully!';
 			statusMessage.className = 'status-message success';
 			updateCurrentRuleDisplay(newRule.mode === 'off' ? null : newRule); // Update display with new rule or null if 'off'
+			await displayStoredRulesSummary(); // Refresh the summary list
 
 			// Notify background to update badge for this tab's domain
 			if (activeTabId && currentDomain && typeof chrome.runtime.sendMessage === 'function') {
@@ -311,4 +375,5 @@ document.addEventListener('DOMContentLoaded', async () => {
 		// Controls are already disabled by getActiveTabInfo if it fails and extension is enabled
 		currentRuleText.textContent = domainDisplay.textContent; // Show the same N/A or error message
 	}
+	await displayStoredRulesSummary(); // Display summary on initial load
 });
