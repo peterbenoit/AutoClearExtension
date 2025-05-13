@@ -170,6 +170,18 @@ document.addEventListener('DOMContentLoaded', async () => {
 			statusMessage.className = 'status-message success';
 			updateCurrentRuleDisplay(newRule.mode === 'off' ? null : newRule); // Update display with new rule or null if 'off'
 
+			// Notify background to update badge for this tab's domain
+			if (activeTabId && currentDomain && typeof chrome.runtime.sendMessage === 'function') {
+				// console.log(`[AutoClear Popup] Requesting badge refresh for domain: ${currentDomain} on tab ${activeTabId}`);
+				chrome.runtime.sendMessage({ action: "refreshBadgeForDomain", domain: currentDomain }, (response) => {
+					if (chrome.runtime.lastError) {
+						// console.warn('[AutoClear Popup] Error sending refreshBadgeForDomain message:', chrome.runtime.lastError.message);
+					} else {
+						// console.log('[AutoClear Popup] Badge refresh message response:', response);
+					}
+				});
+			}
+
 			// Clear message after a few seconds
 			setTimeout(() => {
 				statusMessage.textContent = '';
