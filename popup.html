@@ -6,8 +6,21 @@
     </head>
     <body>
         <h1>AutoClear Settings</h1>
+
+        <div id="global-controls" class="control-group">
+            <h2>Global Settings</h2>
+            <div>
+                <label for="global-enable-toggle">Enable AutoClearExtension:</label>
+                <input type="checkbox" id="global-enable-toggle" />
+            </div>
+            <button id="reset-all-rules-button">Reset All Rules</button>
+            <p id="global-status-message" class="status-message"></p>
+        </div>
+
+        <hr />
+
         <div id="domain-info">
-            <p>Current Domain: <span id="current-domain"></span></p>
+            <p>Current Domain: <strong id="current-domain"></strong></p>
             <p>Status: <span id="current-status"></span></p>
         </div>
         <div id="controls">

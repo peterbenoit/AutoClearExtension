@@ -10,8 +10,96 @@ document.addEventListener('DOMContentLoaded', async () => {
 	const statusMessage = document.getElementById('status-message');
 	const currentRuleText = document.getElementById('current-rule-text');
 
+	// Global controls
+	const globalEnableToggle = document.getElementById('global-enable-toggle');
+	const resetAllRulesButton = document.getElementById('reset-all-rules-button');
+	const globalStatusMessage = document.getElementById('global-status-message');
+
 	let currentDomain = '';
 	let activeTabId = null;
+	let extensionEnabled = true; // Default to true, will be updated from storage
+
+	async function loadGlobalSettings() {
+		try {
+			const result = await chrome.storage.local.get('extensionEnabled');
+			extensionEnabled = result.extensionEnabled !== undefined ? result.extensionEnabled : true;
+			globalEnableToggle.checked = extensionEnabled;
+			updatePerDomainControlsState(); // Enable/disable per-domain controls based on global state
+		} catch (error) {
+			console.error('Error loading global settings:', error);
+			globalStatusMessage.textContent = 'Error loading global state.';
+			globalStatusMessage.className = 'status-message error';
+			// Assume enabled on error to be safe, or handle as critical failure
+			extensionEnabled = true;
+			globalEnableToggle.checked = true;
+		}
+	}
+
+	function updatePerDomainControlsState() {
+		const disabled = !extensionEnabled;
+		ruleModeSelect.disabled = disabled;
+		ttlValueInput.disabled = disabled || ruleModeSelect.value !== 'allow';
+		saveRuleButton.disabled = disabled;
+		if (disabled) {
+			currentRuleText.textContent = 'Extension is globally disabled.';
+			domainDisplay.textContent = currentDomain || 'N/A'; // Keep domain if loaded
+			ruleDomainDisplay.textContent = currentDomain || 'this domain';
+		} else {
+			// If enabling, re-load domain rule to refresh display
+			if (currentDomain) {
+				loadDomainRule();
+			} else {
+				currentRuleText.textContent = 'Load a page to see its rule.';
+			}
+		}
+	}
+
+	globalEnableToggle.addEventListener('change', async () => {
+		extensionEnabled = globalEnableToggle.checked;
+		try {
+			await chrome.storage.local.set({ extensionEnabled: extensionEnabled });
+			globalStatusMessage.textContent = extensionEnabled ? 'Extension Enabled' : 'Extension Disabled';
+			globalStatusMessage.className = extensionEnabled ? 'status-message success' : 'status-message info';
+			updatePerDomainControlsState();
+			// Notify background to update badge (it will clear if disabled)
+			if (typeof chrome.runtime.sendMessage === 'function') {
+				chrome.runtime.sendMessage({ action: "refreshBadgeForDomain", domain: currentDomain, forceClear: !extensionEnabled });
+			}
+			setTimeout(() => { globalStatusMessage.textContent = ''; }, 3000);
+		} catch (error) {
+			console.error('Error saving global enabled state:', error);
+			globalStatusMessage.textContent = 'Error saving global state.';
+			globalStatusMessage.className = 'status-message error';
+		}
+	});
+
+	resetAllRulesButton.addEventListener('click', async () => {
+		if (!confirm('Are you sure you want to reset all domain-specific rules? This cannot be undone.')) {
+			return;
+		}
+		try {
+			// Preserve the extensionEnabled flag, clear only domainRules
+			const settings = await chrome.storage.local.get('extensionEnabled');
+			await chrome.storage.local.clear(); // Clears everything
+			await chrome.storage.local.set({ extensionEnabled: settings.extensionEnabled }); // Restore enabled flag
+
+			globalStatusMessage.textContent = 'All domain rules have been reset.';
+			globalStatusMessage.className = 'status-message success';
+			// Reload current domain's rule display (it should be default now)
+			if (currentDomain) {
+				await loadDomainRule();
+			}
+			// Notify background to update badge for current domain
+			if (typeof chrome.runtime.sendMessage === 'function') {
+				chrome.runtime.sendMessage({ action: "refreshBadgeForDomain", domain: currentDomain });
+			}
+			setTimeout(() => { globalStatusMessage.textContent = ''; }, 3000);
+		} catch (error) {
+			console.error('Error resetting all rules:', error);
+			globalStatusMessage.textContent = 'Error resetting rules.';
+			globalStatusMessage.className = 'status-message error';
+		}
+	});
 
 	async function getActiveTabInfo() {
 		try {
@@ -47,6 +135,8 @@ document.addEventListener('DOMContentLoaded', async () => {
 	}
 
 	function disableControls(message) {
+		// This function is now primarily for non-global disabling (e.g. unsupported page)
+		// Global disable is handled by updatePerDomainControlsState
 		ruleModeSelect.disabled = true;
 		ttlValueInput.disabled = true;
 		saveRuleButton.disabled = true;
@@ -55,6 +145,10 @@ document.addEventListener('DOMContentLoaded', async () => {
 	}
 
 	function updateCurrentRuleDisplay(rule) {
+		if (!extensionEnabled) {
+			currentRuleText.textContent = 'Extension is globally disabled.';
+			return;
+		}
 		if (!currentDomain) {
 			currentRuleText.textContent = "No domain loaded.";
 			return;
@@ -76,6 +170,11 @@ document.addEventListener('DOMContentLoaded', async () => {
 	}
 
 	async function loadDomainRule() {
+		if (!extensionEnabled) {
+			updatePerDomainControlsState();
+			return;
+		}
+
 		if (!currentDomain) {
 			updateCurrentRuleDisplay(null);
 			disableControls("No domain to load rule for.");
@@ -134,6 +233,12 @@ document.addEventListener('DOMContentLoaded', async () => {
 	});
 
 	saveRuleButton.addEventListener('click', async () => {
+		if (!extensionEnabled) {
+			statusMessage.textContent = 'Extension is globally disabled. Cannot save rule.';
+			statusMessage.className = 'status-message error';
+			return;
+		}
+
 		if (!currentDomain) {
 			statusMessage.textContent = 'No domain selected.';
 			statusMessage.className = 'status-message error';
@@ -196,11 +301,14 @@ document.addEventListener('DOMContentLoaded', async () => {
 	});
 
 	// Initialize
+	await loadGlobalSettings(); // Load global settings first
 	const tabInfoLoaded = await getActiveTabInfo();
-	if (tabInfoLoaded) {
+	if (tabInfoLoaded && extensionEnabled) { // Only load domain rule if extension enabled and tab info loaded
 		await loadDomainRule();
+	} else if (!extensionEnabled) {
+		updatePerDomainControlsState(); // Ensure per-domain controls are correctly disabled
 	} else {
-		// Controls are already disabled by getActiveTabInfo if it fails
+		// Controls are already disabled by getActiveTabInfo if it fails and extension is enabled
 		currentRuleText.textContent = domainDisplay.textContent; // Show the same N/A or error message
 	}
 });

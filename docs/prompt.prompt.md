@@ -39,4 +39,4 @@ This entire prompt is IMPORTANT. Read it carefully.
 ### INSTRUCTIONS
 
 -   You are to follow the prompt in the following file:
-    -   `docs/prompt.prompt.md`
+    -   `docs/segment.10.md`
