@@ -1,0 +1,1 @@
+I'm going to use an agent inside vscode to do the scaffolding, but I want you to help me to build the prompts that the agent will use for each segment of the development. This will keep the development into bit-sized chunks that won't overwhelm the agent or vscode; limiting the number of new files and edits performed, making my life a heck of a lot easier.
