@@ -34,15 +34,33 @@ async function checkAndExpireTTLRules() {
 				// console.log(`[AutoClear] TTL for domain "${domain}" expired at ${new Date(rule.expiresAt).toISOString()}. Changing to blacklist.`);
 				allRules[domain] = { mode: 'blacklist' }; // Convert to blacklist, implicitly removing ttlMinutes and expiresAt
 				rulesChanged = true;
+				if (typeof chrome.runtime.sendMessage === 'function') {
+					chrome.runtime.sendMessage({
+						type: 'debug-log',
+						message: `TTL for domain "${domain}" expired. Changed to blacklist.`,
+					});
+				}
 			}
 		}
 
 		if (rulesChanged) {
 			await new Promise(resolve => chrome.storage.local.set({ domainRules: allRules }, resolve));
 			// console.log('[AutoClear] Updated domain rules after expiring TTLs.');
+			if (typeof chrome.runtime.sendMessage === 'function') {
+				chrome.runtime.sendMessage({
+					type: 'debug-log',
+					message: 'Updated domain rules after expiring TTLs.',
+				});
+			}
 		}
 	} catch (error) {
 		// console.error('[AutoClear] Error in checkAndExpireTTLRules:', error);
+		if (typeof chrome.runtime.sendMessage === 'function') {
+			chrome.runtime.sendMessage({
+				type: 'debug-log',
+				message: `Error in checkAndExpireTTLRules: ${error.message}`,
+			});
+		}
 	}
 }
 
@@ -58,6 +76,12 @@ async function getDomainRules(domain) {
 					// console.log(`[AutoClear] TTL for ${domain} has expired. Effective rule: blacklist.`);
 					// This rule is effectively a blacklist now for immediate decision making.
 					// checkAndExpireTTLRules will handle persisting this change to storage.
+					if (typeof chrome.runtime.sendMessage === 'function') {
+						chrome.runtime.sendMessage({
+							type: 'debug-log',
+							message: `TTL for ${domain} has expired. Effective rule: blacklist.`,
+						});
+					}
 					resolve({ mode: 'blacklist' });
 					return;
 				}
@@ -171,8 +195,20 @@ chrome.tabs.onUpdated.addListener(async (tabId, changeInfo, tab) => {
 				chrome.tabs.sendMessage(tabId, { action: "clearStorage" }, (response) => {
 					if (chrome.runtime.lastError) {
 						// console.warn(`[AutoClear] Error sending clearStorage to tab ${tabId} for ${domain}: ${chrome.runtime.lastError.message}`);
+						if (typeof chrome.runtime.sendMessage === 'function') {
+							chrome.runtime.sendMessage({
+								type: 'debug-log',
+								message: `Error sending clearStorage to tab ${tabId} for ${domain}: ${chrome.runtime.lastError.message}`,
+							});
+						}
 					} else {
 						// console.log(`[AutoClear] clearStorage message sent to tab ${tabId} for ${domain}. Response:`, response ? JSON.stringify(response) : 'No response');
+						if (typeof chrome.runtime.sendMessage === 'function') {
+							chrome.runtime.sendMessage({
+								type: 'debug-log',
+								message: `clearStorage message sent to tab ${tabId} for ${domain}. Response: ${response ? JSON.stringify(response) : 'No response'}`,
+							});
+						}
 					}
 				});
 			}
@@ -208,6 +244,11 @@ chrome.tabs.onActivated.addListener(async (activeInfo) => {
 
 // Message listener
 chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
+	// Added to prevent interference with the new debug log listener in popup.js
+	if (request.type === 'debug-log') {
+		return false; // Do not handle here, let popup.js handle it.
+	}
+
 	if (request.action === "refreshBadgeForDomain") {
 		(async () => {
 			// console.log(`[AutoClear Background] Received request to refresh badge for domain ${request.domain}`);

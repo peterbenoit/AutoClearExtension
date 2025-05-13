@@ -65,6 +65,19 @@
             </div>
         </fieldset>
 
+        <hr />
+
+        <fieldset id="debug-log-section">
+            <legend>Debug Log</legend>
+            <div>
+                <label for="debug-log-enable">Enable Debug Log:</label>
+                <input type="checkbox" id="debug-log-enable" />
+            </div>
+            <div id="debug-log-container" style="display: none">
+                <pre id="debug-log-output"></pre>
+            </div>
+        </fieldset>
+
         <script src="popup.js"></script>
     </body>
 </html>

@@ -18,6 +18,14 @@ document.addEventListener('DOMContentLoaded', async () => {
 	const storedRulesList = document.getElementById('stored-rules-list');
 	const noRulesStoredMessage = document.getElementById('no-rules-stored-message');
 
+	// Debug log elements
+	const debugLogEnableCheckbox = document.getElementById('debug-log-enable');
+	const debugLogContainer = document.getElementById('debug-log-container');
+	const debugLogOutput = document.getElementById('debug-log-output');
+	let debugLogEnabled = false;
+	const MAX_LOG_ENTRIES = 50;
+	let logEntries = [];
+
 	let currentDomain = '';
 	let activeTabId = null;
 	let extensionEnabled = true; // Default to true, will be updated from storage
@@ -106,6 +114,56 @@ document.addEventListener('DOMContentLoaded', async () => {
 		}
 	});
 
+	// --- Debug Log Functionality ---
+	function updateDebugLogDisplay() {
+		debugLogOutput.textContent = logEntries.join('\n');
+	}
+
+	function addDebugLog(message, source = 'Popup') {
+		const timestamp = new Date().toLocaleTimeString();
+		const logMessage = `[${timestamp} - ${source}] ${message}`;
+		console.log(logMessage); // Always log to console
+
+		if (debugLogEnabled) {
+			logEntries.unshift(logMessage); // Add to the beginning
+			if (logEntries.length > MAX_LOG_ENTRIES) {
+				logEntries.pop(); // Remove the oldest entry
+			}
+			updateDebugLogDisplay();
+		}
+	}
+
+	debugLogEnableCheckbox.addEventListener('change', () => {
+		debugLogEnabled = debugLogEnableCheckbox.checked;
+		debugLogContainer.style.display = debugLogEnabled ? 'block' : 'none';
+		if (debugLogEnabled) {
+			addDebugLog('Debug log enabled.');
+			updateDebugLogDisplay(); // Show existing logs if any were captured while hidden but enabled
+		} else {
+			addDebugLog('Debug log disabled.'); // Log this to console
+		}
+	});
+
+	// Listen for debug messages from other parts of the extension
+	chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
+		if (request.type === 'debug-log') {
+			let source = 'Unknown';
+			if (sender.tab) {
+				source = `Content Script (${new URL(sender.tab.url).hostname})`;
+			} else if (sender.id === chrome.runtime.id) {
+				// Heuristic: if sender.id is our own extension id, it's likely from background
+				// Note: sender.url might be undefined for background script messages.
+				source = 'Background';
+			}
+			addDebugLog(request.message, source);
+			// No sendResponse needed for debug logs unless we want to confirm receipt
+		}
+		// Keep this listener specific or ensure it doesn't interfere with other listeners
+		// by not returning true unless it's handling the message exclusively and asynchronously.
+		// For debug logs, we typically don't need to send a response.
+	});
+	// --- End Debug Log Functionality ---
+
 	async function getActiveTabInfo() {
 		try {
 			const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
@@ -116,8 +174,10 @@ document.addEventListener('DOMContentLoaded', async () => {
 					currentDomain = url.hostname;
 					activeTabId = tab.id;
 					domainDisplay.textContent = currentDomain;
+					addDebugLog(`Active tab: ${currentDomain} (ID: ${activeTabId})`);
 				} else {
 					domainDisplay.textContent = 'N/A (Unsupported Page)';
+					addDebugLog(`Active tab: Unsupported page (${tab.url})`);
 					disableControls('Unsupported page protocol.');
 					return false;
 				}
@@ -129,6 +189,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 			return true;
 		} catch (error) {
 			console.error('Error getting active tab:', error);
+			addDebugLog(`Error getting active tab: ${error.message}`, 'Error');
 			domainDisplay.textContent = 'Error';
 			disableControls('Could not get tab information.');
 			return false;
@@ -172,15 +233,18 @@ document.addEventListener('DOMContentLoaded', async () => {
 
 	async function loadDomainRule() {
 		if (!extensionEnabled) {
+			addDebugLog('loadDomainRule: Extension globally disabled.');
 			updatePerDomainControlsState();
 			return;
 		}
 
 		if (!currentDomain) {
+			addDebugLog('loadDomainRule: No current domain.');
 			updateCurrentRuleDisplay(null);
 			disableControls("No domain to load rule for.");
 			return;
 		}
+		addDebugLog(`loadDomainRule: Loading rule for ${currentDomain}`);
 
 		try {
 			const result = await chrome.storage.local.get('domainRules');
@@ -207,8 +271,10 @@ document.addEventListener('DOMContentLoaded', async () => {
 				ruleModeSelect.value = 'off';
 				ttlSection.style.display = 'none';
 				ttlValueInput.value = 60; // Default TTL
+				addDebugLog(`No rule found for ${currentDomain}. Set UI to default.`);
 			}
 			updateCurrentRuleDisplay(domainRule);
+			addDebugLog(`Rule for ${currentDomain}: ${JSON.stringify(domainRule || 'off')}`);
 			// Enable controls after loading, only if extension is enabled
 			if (extensionEnabled) {
 				ruleModeSelect.disabled = false;
@@ -224,6 +290,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 			statusMessage.className = 'status-message error';
 			disableControls('Error loading rule.');
 			updateCurrentRuleDisplay(null);
+			addDebugLog(`Error loading domain rule for ${currentDomain}: ${error.message}`, 'Error');
 		}
 	}
 
@@ -312,8 +379,10 @@ document.addEventListener('DOMContentLoaded', async () => {
 				statusMessage.className = 'status-message error';
 				return;
 			}
+
 			newRule.ttlMinutes = ttlMinutes; // Store the TTL duration
 			newRule.expiresAt = Date.now() + ttlMinutes * 60 * 1000; // Calculate expiration timestamp
+			addDebugLog(`Calculated TTL for 'allow' mode: ${ttlMinutes} mins, expires at ${new Date(newRule.expiresAt).toISOString()}`);
 		}
 
 		try {
@@ -323,8 +392,10 @@ document.addEventListener('DOMContentLoaded', async () => {
 			if (mode === 'off') {
 				// If mode is 'off', remove the specific rule for the domain to revert to default behavior
 				delete allRules[currentDomain];
+				addDebugLog(`Rule for ${currentDomain} set to 'off'. Removing from storage.`);
 			} else {
 				allRules[currentDomain] = newRule;
+				addDebugLog(`Saving rule for ${currentDomain}: ${JSON.stringify(newRule)}`);
 			}
 
 			await chrome.storage.local.set({ domainRules: allRules });
@@ -355,10 +426,12 @@ document.addEventListener('DOMContentLoaded', async () => {
 			console.error('Error saving domain rule:', error);
 			statusMessage.textContent = 'Error saving rule.';
 			statusMessage.className = 'status-message error';
+			addDebugLog(`Error saving rule for ${currentDomain}: ${error.message}`, 'Error');
 		}
 	});
 
 	// Initialize
+	addDebugLog('Popup opened. Initializing...');
 	await loadGlobalSettings(); // Load global settings first
 	const tabInfoLoaded = await getActiveTabInfo();
 	if (tabInfoLoaded && extensionEnabled) { // Only load domain rule if extension enabled and tab info loaded

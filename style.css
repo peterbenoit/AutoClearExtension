@@ -173,3 +173,29 @@ hr {
 	width: calc(100% - 12px);
 	/* Make select full width */
 }
+
+/* Debug Log Styles */
+#debug-log-section label {
+	margin-right: 10px;
+}
+
+#debug-log-container {
+	margin-top: 10px;
+}
+
+#debug-log-output {
+	background-color: #f9f9f9;
+	border: 1px solid #eee;
+	border-radius: 3px;
+	padding: 8px;
+	font-family: monospace;
+	font-size: 0.8em;
+	height: 150px;
+	/* Fixed height */
+	overflow-y: scroll;
+	/* Scrollable */
+	white-space: pre-wrap;
+	/* Wrap long lines but preserve formatting */
+	word-break: break-all;
+	/* Break long words/strings */
+}

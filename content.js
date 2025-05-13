@@ -5,42 +5,102 @@ function clearAllStorage() {
 		// Clear localStorage
 		localStorage.clear();
 		// console.log('localStorage cleared by AutoClear Extension.');
+		if (typeof chrome.runtime.sendMessage === 'function') {
+			chrome.runtime.sendMessage({
+				type: 'debug-log',
+				message: 'localStorage cleared.',
+			});
+		}
 
 		// Clear sessionStorage
 		sessionStorage.clear();
 		// console.log('sessionStorage cleared by AutoClear Extension.');
+		if (typeof chrome.runtime.sendMessage === 'function') {
+			chrome.runtime.sendMessage({
+				type: 'debug-log',
+				message: 'sessionStorage cleared.',
+			});
+		}
 
 		// Delete all IndexedDB databases
 		if (indexedDB && indexedDB.databases) {
 			indexedDB.databases().then(databases => {
 				if (databases.length === 0) {
 					// console.log('No IndexedDB databases found to clear.');
+					if (typeof chrome.runtime.sendMessage === 'function') {
+						chrome.runtime.sendMessage({
+							type: 'debug-log',
+							message: 'No IndexedDB databases found to clear.',
+						});
+					}
 					return;
 				}
 				databases.forEach(db => {
 					const deleteRequest = indexedDB.deleteDatabase(db.name);
 					deleteRequest.onsuccess = () => {
 						// console.log(`IndexedDB database "${db.name}" deleted successfully by AutoClear Extension.`);
+						if (typeof chrome.runtime.sendMessage === 'function') {
+							chrome.runtime.sendMessage({
+								type: 'debug-log',
+								message: `IndexedDB database "${db.name}" deleted successfully.`,
+							});
+						}
 					};
 					deleteRequest.onerror = (event) => {
 						// console.error(`Error deleting IndexedDB database "${db.name}":`, event.target.error);
+						if (typeof chrome.runtime.sendMessage === 'function') {
+							chrome.runtime.sendMessage({
+								type: 'debug-log',
+								message: `Error deleting IndexedDB database "${db.name}": ${event.target.error}`,
+							});
+						}
 					};
 					deleteRequest.onblocked = () => {
 						// console.warn(`Deletion of IndexedDB database "${db.name}" is blocked. Close other connections.`);
+						if (typeof chrome.runtime.sendMessage === 'function') {
+							chrome.runtime.sendMessage({
+								type: 'debug-log',
+								message: `Deletion of IndexedDB database "${db.name}" is blocked.`,
+							});
+						}
 					};
 				});
 			}).catch(error => {
 				// console.error('Error listing IndexedDB databases:', error);
+				if (typeof chrome.runtime.sendMessage === 'function') {
+					chrome.runtime.sendMessage({
+						type: 'debug-log',
+						message: `Error listing IndexedDB databases: ${error}`,
+					});
+				}
 			});
 		} else if (indexedDB) {
 			// Fallback for browsers that do not support indexedDB.databases()
 			// console.warn('indexedDB.databases() is not supported. Specific database names are required to delete them without this API.');
+			if (typeof chrome.runtime.sendMessage === 'function') {
+				chrome.runtime.sendMessage({
+					type: 'debug-log',
+					message: 'indexedDB.databases() not supported. Cannot list all DBs for deletion.',
+				});
+			}
 		} else {
 			// console.log('IndexedDB API not available.');
+			if (typeof chrome.runtime.sendMessage === 'function') {
+				chrome.runtime.sendMessage({
+					type: 'debug-log',
+					message: 'IndexedDB API not available.',
+				});
+			}
 		}
 
 	} catch (error) {
 		// console.error('Error during storage clearing operation:', error);
+		if (typeof chrome.runtime.sendMessage === 'function') {
+			chrome.runtime.sendMessage({
+				type: 'debug-log',
+				message: `Error during storage clearing operation: ${error}`,
+			});
+		}
 	}
 }
 
@@ -53,6 +113,12 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
 		// console.log('Received clearStorage command, clearing all storage...');
 		clearAllStorage();
 		sendResponse({ status: "success", message: "Storage cleared on command." });
+		if (typeof chrome.runtime.sendMessage === 'function') {
+			chrome.runtime.sendMessage({
+				type: 'debug-log',
+				message: 'clearStorage command received and executed.',
+			});
+		}
 		return true; // Indicates that the response is sent asynchronously
 	}
 	// Optional: handle other actions or send a default response
