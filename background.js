@@ -19,13 +19,52 @@ async function initializeDomainRules() {
 	});
 }
 
+// New function to check and expire TTL rules
+async function checkAndExpireTTLRules() {
+	// console.log('[AutoClear] Checking for expired TTL rules...');
+	try {
+		const result = await new Promise(resolve => chrome.storage.local.get('domainRules', resolve));
+		let allRules = result.domainRules || {};
+		let rulesChanged = false;
+		const now = Date.now();
+
+		for (const domain in allRules) {
+			const rule = allRules[domain];
+			if (rule.mode === 'allow' && rule.expiresAt && now >= rule.expiresAt) {
+				// console.log(`[AutoClear] TTL for domain "${domain}" expired at ${new Date(rule.expiresAt).toISOString()}. Changing to blacklist.`);
+				allRules[domain] = { mode: 'blacklist' }; // Convert to blacklist, implicitly removing ttlMinutes and expiresAt
+				rulesChanged = true;
+			}
+		}
+
+		if (rulesChanged) {
+			await new Promise(resolve => chrome.storage.local.set({ domainRules: allRules }, resolve));
+			// console.log('[AutoClear] Updated domain rules after expiring TTLs.');
+		}
+	} catch (error) {
+		// console.error('[AutoClear] Error in checkAndExpireTTLRules:', error);
+	}
+}
+
+// Modified getDomainRules to return the *effective* rule, respecting TTL
 async function getDomainRules(domain) {
 	return new Promise((resolve) => {
 		chrome.storage.local.get('domainRules', (result) => {
 			if (result.domainRules && result.domainRules[domain]) {
-				resolve(result.domainRules[domain]);
+				let rule = result.domainRules[domain]; // Get the stored rule
+
+				// Check if it's an "allow" rule and if it has expired
+				if (rule.mode === 'allow' && rule.expiresAt && Date.now() >= rule.expiresAt) {
+					// console.log(`[AutoClear] TTL for ${domain} has expired. Effective rule: blacklist.`);
+					// This rule is effectively a blacklist now for immediate decision making.
+					// checkAndExpireTTLRules will handle persisting this change to storage.
+					resolve({ mode: 'blacklist' });
+					return;
+				}
+				// If not expired, or not an "allow" rule with TTL, resolve with the rule as is.
+				resolve(rule);
 			} else {
-				resolve(null); // Or a default rule if appropriate
+				resolve(null); // No specific rule for this domain
 			}
 		});
 	});
@@ -63,18 +102,30 @@ function getDomainFromUrl(urlString) {
 }
 
 chrome.tabs.onUpdated.addListener(async (tabId, changeInfo, tab) => {
+	await checkAndExpireTTLRules(); // Run expiration check
+
+	let urlToProcess = null;
+	// Prioritize changeInfo.url if available (direct navigation)
 	if (changeInfo.url) {
-		const domain = getDomainFromUrl(changeInfo.url);
+		urlToProcess = changeInfo.url;
+	} else if (changeInfo.status === 'complete' && tab && tab.url) {
+		// Fallback to tab.url when page load completes, to catch cases where changeInfo.url wasn't present
+		// or to re-evaluate rules upon full page load.
+		urlToProcess = tab.url;
+	}
+
+	if (urlToProcess) {
+		const domain = getDomainFromUrl(urlToProcess);
 		if (domain) {
-			const rule = await getDomainRules(domain);
+			const rule = await getDomainRules(domain); // This gets the effective rule
+			// console.log(`[AutoClear] Effective rule for ${domain} on tab ${tabId} update:`, rule);
 			if (rule && rule.mode === 'blacklist') {
+				// console.log(`[AutoClear] Blacklist rule for ${domain}, sending clearStorage to tab ${tabId}`);
 				chrome.tabs.sendMessage(tabId, { action: "clearStorage" }, (response) => {
 					if (chrome.runtime.lastError) {
-						// Optional: Log if the content script is not available or does not respond
-						// console.log(`Attempted to clear storage for ${domain} in tab ${tabId}, but content script may not be active or listening: ${chrome.runtime.lastError.message}`);
+						// console.warn(`[AutoClear] Error sending clearStorage to tab ${tabId} for ${domain}: ${chrome.runtime.lastError.message}`);
 					} else {
-						// Optional: Log successful message sending
-						// console.log(`Message sent to clear storage for ${domain} in tab ${tabId}, response:`, response);
+						// console.log(`[AutoClear] clearStorage message sent to tab ${tabId} for ${domain}. Response:`, response ? JSON.stringify(response) : 'No response');
 					}
 				});
 			}
@@ -83,14 +134,16 @@ chrome.tabs.onUpdated.addListener(async (tabId, changeInfo, tab) => {
 });
 
 chrome.tabs.onRemoved.addListener(async (tabId, removeInfo) => {
-	// As per instructions: "send a message to the content script in that tab (if still active)".
-	// When a tab is removed, its content script is no longer active.
-	// Therefore, no message is sent here. This listener fulfills the requirement
-	// to listen to onRemoved.
-	// console.log(`Tab ${tabId} was removed. No message sent as content script is inactive.`);
+	await checkAndExpireTTLRules(); // Run expiration check
+	// console.log(`[AutoClear] Tab ${tabId} was removed. TTL rules checked. No message sent as content script is inactive.`);
 });
 
 // Initialize on startup
-initializeDomainRules().then(rules => {
-	console.log('Domain rules initialized:', rules);
+initializeDomainRules().then(async (rules) => { // Made the callback async
+	// console.log('[AutoClear] Domain rules initialized:', rules);
+	await checkAndExpireTTLRules(); // Initial check on startup
+
+	// Set up periodic check for TTL expiration
+	setInterval(checkAndExpireTTLRules, 10 * 60 * 1000); // Every 10 minutes
+	// console.log('[AutoClear] TTL rule expiration check interval (10 min) started.');
 });
