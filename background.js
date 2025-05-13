@@ -38,7 +38,7 @@ async function checkAndExpireTTLRules() {
 					chrome.runtime.sendMessage({
 						type: 'debug-log',
 						message: `TTL for domain "${domain}" expired. Changed to blacklist.`,
-					});
+					}, () => void chrome.runtime.lastError);
 				}
 			}
 		}
@@ -50,7 +50,7 @@ async function checkAndExpireTTLRules() {
 				chrome.runtime.sendMessage({
 					type: 'debug-log',
 					message: 'Updated domain rules after expiring TTLs.',
-				});
+				}, () => void chrome.runtime.lastError);
 			}
 		}
 	} catch (error) {
@@ -59,7 +59,7 @@ async function checkAndExpireTTLRules() {
 			chrome.runtime.sendMessage({
 				type: 'debug-log',
 				message: `Error in checkAndExpireTTLRules: ${error.message}`,
-			});
+			}, () => void chrome.runtime.lastError);
 		}
 	}
 }
@@ -80,7 +80,7 @@ async function getDomainRules(domain) {
 						chrome.runtime.sendMessage({
 							type: 'debug-log',
 							message: `TTL for ${domain} has expired. Effective rule: blacklist.`,
-						});
+						}, () => void chrome.runtime.lastError);
 					}
 					resolve({ mode: 'blacklist' });
 					return;
@@ -199,7 +199,7 @@ chrome.tabs.onUpdated.addListener(async (tabId, changeInfo, tab) => {
 							chrome.runtime.sendMessage({
 								type: 'debug-log',
 								message: `Error sending clearStorage to tab ${tabId} for ${domain}: ${chrome.runtime.lastError.message}`,
-							});
+							}, () => void chrome.runtime.lastError);
 						}
 					} else {
 						// console.log(`[AutoClear] clearStorage message sent to tab ${tabId} for ${domain}. Response:`, response ? JSON.stringify(response) : 'No response');
@@ -207,7 +207,7 @@ chrome.tabs.onUpdated.addListener(async (tabId, changeInfo, tab) => {
 							chrome.runtime.sendMessage({
 								type: 'debug-log',
 								message: `clearStorage message sent to tab ${tabId} for ${domain}. Response: ${response ? JSON.stringify(response) : 'No response'}`,
-							});
+							}, () => void chrome.runtime.lastError);
 						}
 					}
 				});

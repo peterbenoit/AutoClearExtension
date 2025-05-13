@@ -75,7 +75,10 @@ document.addEventListener('DOMContentLoaded', async () => {
 			if (typeof chrome.runtime.sendMessage === 'function') {
 				chrome.runtime.sendMessage({ action: "refreshBadgeForDomain", domain: currentDomain, forceClear: !extensionEnabled });
 			}
-			setTimeout(() => { globalStatusMessage.textContent = ''; }, 3000);
+			setTimeout(() => {
+				globalStatusMessage.textContent = '';
+				globalStatusMessage.className = 'status-message'; // Reset class
+			}, 3000);
 		} catch (error) {
 			console.error('Error saving global enabled state:', error);
 			globalStatusMessage.textContent = 'Error saving global state.';
@@ -106,7 +109,10 @@ document.addEventListener('DOMContentLoaded', async () => {
 			if (typeof chrome.runtime.sendMessage === 'function') {
 				chrome.runtime.sendMessage({ action: "refreshBadgeForDomain", domain: currentDomain });
 			}
-			setTimeout(() => { globalStatusMessage.textContent = ''; }, 3000);
+			setTimeout(() => {
+				globalStatusMessage.textContent = '';
+				globalStatusMessage.className = 'status-message'; // Reset class
+			}, 3000);
 		} catch (error) {
 			console.error('Error resetting all rules:', error);
 			globalStatusMessage.textContent = 'Error resetting rules.';
