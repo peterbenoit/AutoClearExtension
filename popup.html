@@ -3,6 +3,7 @@
     <head>
         <title>AutoClear Extension Popup</title>
         <link rel="stylesheet" href="style.css" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     </head>
     <body>
         <h1>AutoClear Settings</h1>
@@ -11,25 +12,21 @@
             <legend>Global Settings</legend>
             <div id="global-controls" class="control-group">
                 <div>
-                    <label for="global-enable-toggle">Enable AutoClearExtension:</label>
                     <input type="checkbox" id="global-enable-toggle" />
+                    <label for="global-enable-toggle">Enable AutoClearExtension</label>
                 </div>
                 <button id="reset-all-rules-button">Reset All Rules</button>
                 <p id="global-status-message" class="status-message"></p>
             </div>
         </fieldset>
 
-        <hr />
-
         <fieldset id="current-domain-rule-section">
             <legend>Rule for Current Domain</legend>
             <div id="domain-info">
                 <p>Current Domain: <strong id="current-domain">Loading...</strong></p>
-                <!-- The old "Status: <span id="current-status"></span>" is removed -->
             </div>
 
             <div id="rule-editor">
-                <!-- The H2 "Rule for <span id="rule-domain-display">this domain</span>:" is removed as fieldset legend serves this purpose -->
                 <label for="rule-mode">Mode:</label>
                 <select id="rule-mode">
                     <option value="off">Disable (Do Nothing)</option>
@@ -38,27 +35,23 @@
                 </select>
 
                 <div id="ttl-section" style="display: none">
-                    <label for="ttl-value">Allow for (minutes):</label>
+                    <label for="ttl-value">Allow for:</label>
                     <input type="number" id="ttl-value" min="1" value="60" />
+                    <span>minutes</span>
                 </div>
 
-                <button id="save-rule-button">Save Rule</button>
+                <div class="button-group">
+                    <button id="save-rule-button">Save Rule</button>
+                    <button id="clear-cookies-now-button" disabled>Clear Cookies Now</button>
+                </div>
                 <p id="status-message" class="status-message"></p>
             </div>
 
-            <div id="manual-actions-group" class="control-group" style="margin-top: 10px">
-                <button id="clear-cookies-now-button" disabled>Clear Cookies Now</button>
-                <!-- Status message for this button can reuse the main status-message or have its own -->
-            </div>
-
             <div id="current-rule-display" style="margin-top: 10px">
-                <!-- Adjusted margin -->
                 <h3>Current Effective Rule:</h3>
                 <p id="current-rule-text">Loading rule...</p>
             </div>
         </fieldset>
-
-        <hr />
 
         <fieldset id="stored-rules-summary-fieldset">
             <legend>Stored Rules Summary</legend>
@@ -70,32 +63,21 @@
             </div>
         </fieldset>
 
-        <hr />
-
         <fieldset id="debug-log-section">
             <legend>Debug Log</legend>
             <div>
-                <label for="debug-log-enable">Enable Debug Log:</label>
                 <input type="checkbox" id="debug-log-enable" />
+                <label for="debug-log-enable">Enable Debug Log</label>
             </div>
-            <div id="debug-log-controls" style="margin-top: 5px; display: none">
+            <div
+                id="debug-log-controls"
+                class="button-group"
+                style="margin-top: 5px; display: none"
+            >
                 <button id="clear-debug-log-button">Clear Log</button>
                 <button id="toggle-timestamps-button">Toggle Timestamps</button>
             </div>
-            <div
-                id="debug-log-list-container"
-                style="
-                    display: none;
-                    max-height: 150px;
-                    overflow-y: auto;
-                    border: 1px solid #ccc;
-                    padding: 5px;
-                    margin-top: 5px;
-                    background-color: #f9f9f9;
-                "
-            >
-                {/* Log entries will be populated here by popup.js */}
-            </div>
+            <div id="debug-log-list-container" style="display: none"></div>
         </fieldset>
 
         <script src="popup.js"></script>

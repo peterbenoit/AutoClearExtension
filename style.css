@@ -1,201 +1,337 @@
-/* style.css */
+/* AutoClear Extension Styles - Modern UI */
+
+:root {
+	--primary-color: #4a6cf7;
+	--primary-dark: #3651c5;
+	--secondary-color: #6c757d;
+	--success-color: #28a745;
+	--warning-color: #ffc107;
+	--danger-color: #dc3545;
+	--light-color: #f8f9fa;
+	--dark-color: #343a40;
+	--text-color: #333;
+	--text-muted: #6c757d;
+	--border-color: #dee2e6;
+	--card-bg: #ffffff;
+	--card-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+	--border-radius: 8px;
+	--transition-speed: 0.2s;
+}
 
 body {
-	font-family: sans-serif;
-	margin: 10px;
-	min-width: 350px;
-	/* Ensure popup has enough width */
+	font-family: 'Segoe UI', -apple-system, BlinkMacSystemFont, Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+	margin: 0;
+	padding: 15px;
+	min-width: 380px;
+	background-color: #f5f7fa;
+	color: var(--text-color);
+	line-height: 1.5;
 }
 
 h1 {
 	text-align: center;
 	font-size: 1.5em;
-	margin-bottom: 15px;
+	margin: 0 0 20px 0;
+	padding-bottom: 12px;
+	color: var(--primary-color);
+	border-bottom: 2px solid var(--primary-color);
+	font-weight: 600;
+	letter-spacing: 0.5px;
 }
 
 fieldset {
-	border: 1px solid #ccc;
-	border-radius: 5px;
-	padding: 10px 15px;
-	margin-bottom: 15px;
+	border: none;
+	border-radius: var(--border-radius);
+	padding: 8px;
+	margin-bottom: 20px;
+	background-color: var(--card-bg);
+	box-shadow: var(--card-shadow);
 }
 
 legend {
-	font-weight: bold;
+	font-weight: 600;
 	font-size: 1.1em;
-	padding: 0 5px;
-	color: #333;
+	padding: 0;
+	color: var(--primary-color);
+	position: relative;
+	top: 15px;
+	margin-bottom: 10px;
 }
 
+/* legend::after {
+	content: "";
+	position: absolute;
+	bottom: -4px;
+	left: 0;
+	width: 40px;
+	height: 2px;
+	background-color: var(--primary-color);
+} */
+
 .control-group div {
-	margin-bottom: 8px;
+	margin-bottom: 12px;
 }
 
 label {
 	display: inline-block;
-	margin-right: 5px;
-	font-size: 0.9em;
+	/* margin-bottom: 6px; */
+	margin-right: 8px;
+	font-size: 0.95em;
+	font-weight: 500;
+	color: var(--dark-color);
 }
 
-input[type="checkbox"],
-input[type="number"],
-select,
-button {
-	padding: 5px;
-	border-radius: 3px;
-	border: 1px solid #ddd;
-	margin-top: 2px;
-	/* Align with labels better */
+/* Form Controls */
+input[type="checkbox"] {
+	appearance: none;
+	-webkit-appearance: none;
+	width: 18px;
+	height: 18px;
+	border: 2px solid var(--border-color);
+	border-radius: 4px;
+	vertical-align: middle;
+	cursor: pointer;
+	position: relative;
+	margin-right: 6px;
+	transition: background-color var(--transition-speed);
+}
+
+input[type="checkbox"]:checked {
+	background-color: var(--primary-color);
+	border-color: var(--primary-color);
+}
+
+input[type="checkbox"]:checked::after {
+	content: "";
+	position: absolute;
+	left: 4px;
+	top: -1px;
+	width: 5px;
+	height: 10px;
+	border: solid white;
+	border-width: 0 2px 2px 0;
+	transform: rotate(45deg);
 }
 
 input[type="number"] {
-	width: 60px;
+	width: 70px;
+	padding: 8px 10px;
+	border-radius: var(--border-radius);
+	border: 1px solid var(--border-color);
+	font-size: 0.9em;
+	background-color: white;
+	transition: border var(--transition-speed);
+}
+
+input[type="number"]:focus,
+select:focus {
+	border-color: var(--primary-color);
+	outline: none;
+	box-shadow: 0 0 0 3px rgba(74, 108, 247, 0.15);
+}
+
+select {
+	width: 100%;
+	padding: 8px 10px;
+	border-radius: var(--border-radius);
+	border: 1px solid var(--border-color);
+	background-color: white;
+	font-size: 0.9em;
+	cursor: pointer;
 }
 
 button {
-	background-color: #f0f0f0;
+	background-color: var(--primary-color);
+	color: white;
+	border: none;
+	padding: 8px 16px;
+	border-radius: var(--border-radius);
+	font-weight: 500;
 	cursor: pointer;
-	margin-top: 5px;
+	transition: all var(--transition-speed);
+	font-size: 0.95em;
+	margin-top: 8px;
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
 }
 
 button:hover {
-	background-color: #e0e0e0;
+	background-color: var(--primary-dark);
+	transform: translateY(-1px);
+	box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+}
+
+button:active {
+	transform: translateY(0);
+	box-shadow: none;
 }
 
 #reset-all-rules-button {
-	background-color: #ffdddd;
-	border-color: #ffaaaa;
+	background-color: var(--danger-color);
+	margin-top: 0;
 }
 
 #reset-all-rules-button:hover {
-	background-color: #ffcccc;
+	background-color: #c82333;
 }
 
+#clear-cookies-now-button {
+	background-color: var(--warning-color);
+	color: var(--dark-color);
+}
+
+#clear-cookies-now-button:hover {
+	background-color: #e0a800;
+}
+
+/* Status Messages */
 .status-message {
 	font-size: 0.85em;
-	margin-top: 5px;
-	padding: 5px;
-	border-radius: 3px;
+	margin-top: 8px;
+	padding: 8px 12px;
+	border-radius: var(--border-radius);
+	animation: fadeIn 0.3s ease-in;
+	display: none;
+	/* Hidden by default until updated via JS */
 }
 
 .status-message.success {
-	color: green;
-	background-color: #e6ffe6;
-	border: 1px solid #b3ffb3;
+	color: #155724;
+	background-color: #d4edda;
+	border-left: 3px solid var(--success-color);
 }
 
 .status-message.error {
-	color: red;
-	background-color: #ffe6e6;
-	border: 1px solid #ffb3b3;
+	color: #721c24;
+	background-color: #f8d7da;
+	border-left: 3px solid var(--danger-color);
 }
 
 .status-message.info {
-	color: #333;
-	background-color: #f0f0f0;
-	border: 1px solid #ccc;
+	color: #0c5460;
+	background-color: #d1ecf1;
+	border-left: 3px solid #17a2b8;
+}
+
+/* Domain info styles */
+#domain-info {
+	padding-bottom: 10px;
+	border-bottom: 1px solid var(--border-color);
+	margin-bottom: 15px;
 }
 
 #domain-info p {
 	margin: 5px 0;
+	font-size: 0.95em;
+}
+
+#current-domain {
+	color: var(--primary-color);
+	font-size: 1.05em;
+}
+
+/* Rule display */
+#current-rule-display {
+	margin-top: 15px;
+	padding: 10px;
+	background-color: rgba(74, 108, 247, 0.05);
+	border-radius: var(--border-radius);
 }
 
 #current-rule-display h3 {
-	font-size: 1em;
-	margin-bottom: 5px;
-	color: #555;
+	font-size: 0.95em;
+	margin: 0 0 5px 0;
+	color: var(--text-color);
 }
 
 #current-rule-display p {
 	font-style: italic;
-	color: #333;
+	color: var(--text-muted);
+	margin: 0;
 }
 
+/* Rules summary list */
 #stored-rules-summary-section ul {
 	list-style-type: none;
 	padding-left: 0;
 	max-height: 150px;
-	/* Add scroll for long lists */
 	overflow-y: auto;
-	/* Add scroll for long lists */
-	border: 1px solid #eee;
-	padding: 5px;
-	border-radius: 3px;
+	margin: 0;
 }
 
 #stored-rules-summary-section li {
-	padding: 3px 0;
+	padding: 8px 10px;
 	font-size: 0.9em;
-	border-bottom: 1px dashed #eee;
+	border-bottom: 1px solid var(--border-color);
+	display: flex;
+	justify-content: space-between;
 }
 
 #stored-rules-summary-section li:last-child {
 	border-bottom: none;
 }
 
-hr {
-	border: none;
-	border-top: 1px solid #eee;
-	margin: 20px 0;
+#stored-rules-summary-section li:hover {
+	background-color: rgba(74, 108, 247, 0.05);
 }
 
-/* Specific adjustments for better layout */
+/* Debug log styles */
+#debug-log-section label {
+	margin-right: 10px;
+}
+
+#debug-log-list-container {
+	background-color: #f8f9fa;
+	border: 1px solid var(--border-color);
+	border-radius: var(--border-radius);
+	padding: 10px;
+	font-family: monospace;
+	font-size: 0.85em;
+	height: 150px;
+	overflow-y: scroll;
+	white-space: pre-wrap;
+	word-break: break-all;
+}
+
+/* Dividers */
+hr {
+	border: none;
+	border-top: 1px solid var(--border-color);
+	margin: 15px 0;
+}
+
+/* Global controls layout */
 #global-controls div {
 	display: flex;
 	align-items: center;
 }
 
-#global-controls label {
+/* Animation */
+@keyframes fadeIn {
+	from {
+		opacity: 0;
+	}
+
+	to {
+		opacity: 1;
+	}
+}
+
+/* Make TTL section look better on one line */
+#ttl-section {
+	display: flex;
+	align-items: center;
+}
+
+#ttl-section label {
 	margin-bottom: 0;
-	/* Align with checkbox */
+	flex-shrink: 0;
 }
 
-#ttl-section label,
-#ttl-section input {
-	display: inline-block;
-	/* Keep TTL on one line */
-	margin-right: 5px;
-}
-
-#rule-editor button {
-	margin-left: 0;
-	/* Align save button if needed */
-}
-
-#rule-editor>label,
-#rule-editor>select,
-#rule-editor>div {
-	margin-bottom: 8px;
-	/* Add spacing between rule editor elements */
-}
-
-#rule-editor>select {
-	width: calc(100% - 12px);
-	/* Make select full width */
-}
-
-/* Debug Log Styles */
-#debug-log-section label {
-	margin-right: 10px;
-}
-
-#debug-log-container {
-	margin-top: 10px;
-}
-
-#debug-log-output {
-	background-color: #f9f9f9;
-	border: 1px solid #eee;
-	border-radius: 3px;
-	padding: 8px;
-	font-family: monospace;
-	font-size: 0.8em;
-	height: 150px;
-	/* Fixed height */
-	overflow-y: scroll;
-	/* Scrollable */
-	white-space: pre-wrap;
-	/* Wrap long lines but preserve formatting */
-	word-break: break-all;
-	/* Break long words/strings */
+/* Button groups */
+.button-group {
+	display: flex;
+	gap: 8px;
+	flex-wrap: wrap;
 }
