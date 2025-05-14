@@ -58,15 +58,21 @@ legend {
 	margin-bottom: 10px;
 }
 
-/* legend::after {
-	content: "";
-	position: absolute;
-	bottom: -4px;
-	left: 0;
-	width: 40px;
-	height: 2px;
-	background-color: var(--primary-color);
-} */
+/* Focus styles for better accessibility */
+button:focus,
+input:focus,
+select:focus,
+[tabindex="0"]:focus {
+	outline: 2px solid dodgerblue;
+	outline-offset: 2px;
+	box-shadow: 0 0 0 2px rgba(30, 144, 255, 0.5);
+	/* Optional: softer glow */
+}
+
+.tabs button:focus {
+	outline-offset: -2px;
+	/* Adjust for tab buttons if needed */
+}
 
 .control-group div {
 	margin-bottom: 12px;

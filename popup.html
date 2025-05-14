@@ -80,6 +80,124 @@
             <div id="debug-log-list-container" style="display: none"></div>
         </fieldset>
 
+        <div class="container">
+            <h1>AutoClear</h1>
+            <div class="tabs">
+                <button
+                    id="rulesTab"
+                    role="tab"
+                    aria-selected="true"
+                    aria-controls="rulesPanel"
+                    tabindex="0"
+                >
+                    Rules
+                </button>
+                <button
+                    id="settingsTab"
+                    role="tab"
+                    aria-selected="false"
+                    aria-controls="settingsPanel"
+                    tabindex="0"
+                >
+                    Settings
+                </button>
+                <button
+                    id="debugTab"
+                    role="tab"
+                    aria-selected="false"
+                    aria-controls="debugPanel"
+                    tabindex="0"
+                >
+                    Debug
+                </button>
+            </div>
+
+            <div id="rulesPanel" role="tabpanel" aria-labelledby="rulesTab">
+                <div class="rule-input-container">
+                    <input
+                        type="text"
+                        id="domainPattern"
+                        placeholder="Enter domain pattern (e.g., *.example.com)"
+                        aria-label="Domain pattern"
+                    />
+                    <select id="clearOption" aria-label="Select what to clear">
+                        <option value="cookies">Cookies</option>
+                        <option value="localStorage">Local Storage</option>
+                        <option value="sessionStorage">Session Storage</option>
+                        <option value="cache">Cache</option>
+                        <option value="all">All</option>
+                    </select>
+                    <div class="ttl-input-container">
+                        <input
+                            type="number"
+                            id="ttlValue"
+                            placeholder="TTL (minutes, optional)"
+                            min="1"
+                            aria-label="Time to live in minutes"
+                        />
+                    </div>
+                    <button id="addRule" aria-label="Add new rule">Add Rule</button>
+                </div>
+                <div
+                    id="rulesList"
+                    aria-live="polite"
+                    aria-atomic="true"
+                    aria-label="List of current rules"
+                >
+                    <!-- Rules will be dynamically added here -->
+                </div>
+                <button id="resetRules" class="danger-button" aria-label="Reset all rules">
+                    Reset Rules
+                </button>
+            </div>
+
+            <div id="settingsPanel" role="tabpanel" aria-labelledby="settingsTab" hidden>
+                <div class="settings-group">
+                    <label for="autoClearEnabled">Enable AutoClear:</label>
+                    <input
+                        type="checkbox"
+                        id="autoClearEnabled"
+                        aria-describedby="autoClearEnabledDescription"
+                    />
+                    <p id="autoClearEnabledDescription" class="setting-description">
+                        Toggle automatic clearing based on defined rules.
+                    </p>
+                </div>
+                <div class="settings-group">
+                    <label for="showNotifications">Show Notifications:</label>
+                    <input
+                        type="checkbox"
+                        id="showNotifications"
+                        aria-describedby="showNotificationsDescription"
+                    />
+                    <p id="showNotificationsDescription" class="setting-description">
+                        Display a notification when data is cleared.
+                    </p>
+                </div>
+                <!-- Add more settings here as needed -->
+            </div>
+
+            <div id="debugPanel" role="tabpanel" aria-labelledby="debugTab" hidden>
+                <button id="toggleDebug" aria-controls="debugLogContainer" aria-expanded="false">
+                    Show Debug Log
+                </button>
+                <div id="debugLogContainer" hidden aria-hidden="true">
+                    <div
+                        id="debugLog"
+                        role="log"
+                        aria-live="polite"
+                        aria-atomic="false"
+                        aria-label="Debug log messages"
+                    >
+                        <!-- Debug messages will appear here -->
+                    </div>
+                    <button id="clearLog" aria-label="Clear debug log">Clear Log</button>
+                    <button id="copyDebugLog" aria-label="Copy debug log to clipboard">
+                        Copy Log
+                    </button>
+                </div>
+            </div>
+        </div>
         <script src="popup.js"></script>
     </body>
 </html>

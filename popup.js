@@ -627,6 +627,86 @@ async function initStoredRulesSummary() {
 	await displayStoredRulesSummary(); // Display summary on initial load
 }
 
+/**
+ * Toggles the visibility of the debug log panel.
+ * Updates ARIA attributes for accessibility.
+ */
+function toggleDebugPanel() {
+	const debugLogContainer = document.getElementById('debugLogContainer');
+	const toggleButton = document.getElementById('toggleDebug');
+	if (debugLogContainer) {
+		const isHidden = debugLogContainer.hidden;
+		debugLogContainer.hidden = !isHidden;
+		debugLogContainer.setAttribute('aria-hidden', String(!isHidden));
+		toggleButton.setAttribute('aria-expanded', String(isHidden));
+		toggleButton.textContent = isHidden ? 'Hide Debug Log' : 'Show Debug Log';
+		if (isHidden) {
+			loadDebugLog(); // Load log content when shown
+		}
+	}
+}
+
+/**
+ * Initializes the popup by loading rules, setting up event listeners,
+ * and restoring settings.
+ */
+function initPopup() {
+	// ...existing code...
+	const toggleDebugButton = document.getElementById('toggleDebug');
+	if (toggleDebugButton) {
+		toggleDebugButton.addEventListener('click', toggleDebugPanel);
+	}
+
+	// Initialize tab states and ARIA attributes
+	const tabs = document.querySelectorAll('.tabs button[role="tab"]');
+	const panels = document.querySelectorAll('div[role="tabpanel"]');
+
+	tabs.forEach(tab => {
+		tab.addEventListener('click', () => {
+			// Deactivate all tabs and hide all panels
+			tabs.forEach(t => {
+				t.setAttribute('aria-selected', 'false');
+				t.classList.remove('active');
+			});
+			panels.forEach(p => {
+				p.hidden = true;
+			});
+
+			// Activate clicked tab and show its panel
+			tab.setAttribute('aria-selected', 'true');
+			tab.classList.add('active');
+			const panelId = tab.getAttribute('aria-controls');
+			const panel = document.getElementById(panelId);
+			if (panel) {
+				panel.hidden = false;
+				if (panelId === 'debugPanel' && !document.getElementById('debugLogContainer').hidden) {
+					loadDebugLog();
+				}
+			}
+		});
+
+		// Ensure correct initial state for aria-selected based on active class or default
+		if (tab.id === 'rulesTab') { // Assuming rulesTab is the default active tab
+			tab.setAttribute('aria-selected', 'true');
+			tab.classList.add('active');
+			document.getElementById('rulesPanel').hidden = false;
+		} else {
+			tab.setAttribute('aria-selected', 'false');
+			document.getElementById(tab.getAttribute('aria-controls')).hidden = true;
+		}
+	});
+
+
+	// Set initial ARIA attributes for the debug panel toggle
+	const debugLogContainer = document.getElementById('debugLogContainer');
+	const toggleDebugElem = document.getElementById('toggleDebug');
+	if (debugLogContainer && toggleDebugElem) {
+		const isDebugVisible = !debugLogContainer.hidden;
+		toggleDebugElem.setAttribute('aria-expanded', String(isDebugVisible));
+		debugLogContainer.setAttribute('aria-hidden', String(!isDebugVisible));
+		toggleDebugElem.textContent = isDebugVisible ? 'Hide Debug Log' : 'Show Debug Log';
+	}
+}
 
 // --- DOMContentLoaded ---
 document.addEventListener('DOMContentLoaded', async () => {
