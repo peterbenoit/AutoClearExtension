@@ -3,7 +3,8 @@
     "name": "AutoClearExtension",
     "description": "A Chrome extension to automatically clear browsing data.",
     "version": "0.1",
-    "permissions": ["storage", "tabs", "scripting", "activeTab"],
+    "permissions": ["storage", "tabs", "scripting", "activeTab", "cookies"],
+    "host_permissions": ["<all_urls>"],
     "background": {
         "service_worker": "background.js"
     },
