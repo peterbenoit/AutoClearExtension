@@ -21,11 +21,16 @@ document.addEventListener('DOMContentLoaded', async () => {
 
 	// Debug log elements
 	const debugLogEnableCheckbox = document.getElementById('debug-log-enable');
-	const debugLogContainer = document.getElementById('debug-log-container');
-	const debugLogOutput = document.getElementById('debug-log-output');
-	let debugLogEnabled = false;
-	const MAX_LOG_ENTRIES = 50;
-	let logEntries = [];
+	const debugLogControls = document.getElementById('debug-log-controls'); // New
+	const debugLogListContainer = document.getElementById('debug-log-list-container'); // New (replaces debugLogContainer and debugLogOutput)
+	const clearDebugLogButton = document.getElementById('clear-debug-log-button'); // New
+	const toggleTimestampsButton = document.getElementById('toggle-timestamps-button'); // New
+
+	let debugLogEnabled = false; // This will be loaded from storage
+	// const MAX_LOG_ENTRIES = 50; // Max entries now handled by background.js
+	// let logEntries = []; // logEntries are now stored in chrome.storage.local
+
+	let showTimestamps = true; // Default to showing timestamps
 
 	let currentDomain = '';
 	let activeTabId = null;
@@ -128,52 +133,164 @@ document.addEventListener('DOMContentLoaded', async () => {
 	});
 
 	// --- Debug Log Functionality ---
-	function updateDebugLogDisplay() {
-		debugLogOutput.textContent = logEntries.join('\n');
-	}
 
-	function addDebugLog(message, source = 'Popup') {
-		const timestamp = new Date().toLocaleTimeString();
-		const logMessage = `[${timestamp} - ${source}] ${message}`;
-		console.log(logMessage); // Always log to console
-
-		if (debugLogEnabled) {
-			logEntries.unshift(logMessage); // Add to the beginning
-			if (logEntries.length > MAX_LOG_ENTRIES) {
-				logEntries.pop(); // Remove the oldest entry
+	async function loadDebugLogState() {
+		try {
+			const result = await chrome.storage.local.get(['debugLogEnabled', 'showTimestamps']);
+			debugLogEnabled = result.debugLogEnabled === undefined ? false : result.debugLogEnabled;
+			showTimestamps = result.showTimestamps === undefined ? true : result.showTimestamps;
+			debugLogEnableCheckbox.checked = debugLogEnabled;
+			debugLogControls.style.display = debugLogEnabled ? 'block' : 'none';
+			debugLogListContainer.style.display = debugLogEnabled ? 'block' : 'none';
+			toggleTimestampsButton.textContent = showTimestamps ? 'Hide Timestamps' : 'Show Timestamps';
+			if (debugLogEnabled) {
+				await renderDebugLog();
 			}
-			updateDebugLogDisplay();
+		} catch (error) {
+			console.error('Error loading debug log state:', error);
+			// Fallback to defaults
+			debugLogEnabled = false;
+			showTimestamps = true;
+			debugLogEnableCheckbox.checked = false;
 		}
 	}
 
-	debugLogEnableCheckbox.addEventListener('change', () => {
+	async function renderDebugLog() {
+		if (!debugLogEnabled) {
+			debugLogListContainer.innerHTML = ''; // Clear if not enabled
+			return;
+		}
+		try {
+			const result = await chrome.storage.local.get('debugLog');
+			const logs = result.debugLog || [];
+			debugLogListContainer.innerHTML = ''; // Clear previous entries
+
+			if (logs.length === 0) {
+				const emptyMessage = document.createElement('div');
+				emptyMessage.textContent = 'Log is empty.';
+				emptyMessage.style.padding = '5px';
+				emptyMessage.style.fontStyle = 'italic';
+				debugLogListContainer.appendChild(emptyMessage);
+				return;
+			}
+
+			const ul = document.createElement('ul');
+			ul.style.listStyleType = 'none';
+			ul.style.padding = '0';
+			ul.style.margin = '0';
+
+			logs.forEach(logEntry => { // Logs are stored most recent first
+				const li = document.createElement('li');
+				li.style.padding = '2px 5px';
+				li.style.borderBottom = '1px solid #eee';
+				li.style.fontSize = '0.9em';
+				li.style.wordBreak = 'break-all';
+
+				let displayMessage = logEntry;
+				if (!showTimestamps) {
+					// Attempt to strip ISO timestamp and source: [2023-10-27T10:30:00.000Z - Source] Message
+					const match = logEntry.match(/^(\\[[^\]]+\\]\\s*)(.*)$/);
+					if (match && match[2]) {
+						displayMessage = match[2];
+					}
+				}
+				li.textContent = displayMessage;
+
+				if (logEntry.toLowerCase().includes('error')) {
+					li.style.color = 'red';
+				} else if (logEntry.toLowerCase().includes('warn')) {
+					li.style.color = 'orange';
+				}
+				ul.appendChild(li);
+			});
+			debugLogListContainer.appendChild(ul);
+		} catch (error) {
+			console.error('Error rendering debug log:', error);
+			debugLogListContainer.textContent = 'Error loading log entries.';
+			debugLogListContainer.style.color = 'red';
+		}
+	}
+
+	// Replaces the old addDebugLog and updateDebugLogDisplay
+	async function addDebugLog(message, source = 'Popup') {
+		// Always log to console for immediate feedback during development
+		const timestamp = new Date().toLocaleTimeString(); // For console only
+		console.log(`[${timestamp} - ${source}] ${message}`);
+
+		// Send to background script for persistent storage
+		if (typeof chrome.runtime.sendMessage === 'function') {
+			chrome.runtime.sendMessage({
+				type: 'log-debug-to-storage',
+				message: message,
+				source: source
+			}, (response) => {
+				if (chrome.runtime.lastError) {
+					console.warn('Error sending debug log to background:', chrome.runtime.lastError.message);
+				}
+				// The background script will send 'debug-log-updated' to all popups (including this one)
+				// which will trigger renderDebugLog if the log is enabled.
+			});
+		}
+	}
+
+	debugLogEnableCheckbox.addEventListener('change', async () => {
 		debugLogEnabled = debugLogEnableCheckbox.checked;
-		debugLogContainer.style.display = debugLogEnabled ? 'block' : 'none';
+		await chrome.storage.local.set({ debugLogEnabled: debugLogEnabled });
+		debugLogControls.style.display = debugLogEnabled ? 'block' : 'none';
+		debugLogListContainer.style.display = debugLogEnabled ? 'block' : 'none';
 		if (debugLogEnabled) {
-			addDebugLog('Debug log enabled.');
-			updateDebugLogDisplay(); // Show existing logs if any were captured while hidden but enabled
+			addDebugLog('Debug log panel enabled.');
+			await renderDebugLog();
 		} else {
-			addDebugLog('Debug log disabled.'); // Log this to console
+			addDebugLog('Debug log panel disabled.'); // This will still go to console and background
+			debugLogListContainer.innerHTML = ''; // Clear display when disabled
 		}
 	});
 
-	// Listen for debug messages from other parts of the extension
-	chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
-		if (request.type === 'debug-log') {
-			let source = 'Unknown';
-			if (sender.tab) {
-				source = `Content Script (${new URL(sender.tab.url).hostname})`;
-			} else if (sender.id === chrome.runtime.id) {
-				// Heuristic: if sender.id is our own extension id, it's likely from background
-				// Note: sender.url might be undefined for background script messages.
-				source = 'Background';
-			}
-			addDebugLog(request.message, source);
-			// No sendResponse needed for debug logs unless we want to confirm receipt
+	clearDebugLogButton.addEventListener('click', async () => {
+		if (!confirm('Are you sure you want to clear the entire debug log?')) return;
+		try {
+			await chrome.storage.local.set({ debugLog: [] });
+			addDebugLog('Debug log cleared by user.', 'Popup Action');
+			await renderDebugLog(); // Re-render (will show empty)
+		} catch (error) {
+			console.error('Error clearing debug log:', error);
+			addDebugLog(`Error clearing debug log: ${error.message}`, 'Popup Error');
 		}
-		// Keep this listener specific or ensure it doesn't interfere with other listeners
-		// by not returning true unless it's handling the message exclusively and asynchronously.
-		// For debug logs, we typically don't need to send a response.
+	});
+
+	toggleTimestampsButton.addEventListener('click', async () => {
+		showTimestamps = !showTimestamps;
+		await chrome.storage.local.set({ showTimestamps: showTimestamps });
+		toggleTimestampsButton.textContent = showTimestamps ? 'Hide Timestamps' : 'Show Timestamps';
+		addDebugLog(`Timestamps ${showTimestamps ? 'shown' : 'hidden'}.`);
+		await renderDebugLog(); // Re-render with new timestamp visibility
+	});
+
+
+	// Listen for debug messages from other parts of the extension (now only for updates)
+	chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
+		// if (request.type === 'debug-log') { // Old direct message handling
+		// 	let source = 'Unknown';
+		// 	if (sender.tab) {
+		// 		source = `Content Script (${new URL(sender.tab.url).hostname})`;
+		// 	} else if (sender.id === chrome.runtime.id) {
+		// 		source = 'Background';
+		// 	}
+		// 	addDebugLog(request.message, source); // This now sends to background
+		// }
+		if (request.type === 'debug-log-updated') {
+			// console.log('Popup received debug-log-updated message');
+			if (debugLogEnabled) {
+				renderDebugLog(); // Re-render the log display
+			}
+			return false; // No response needed
+		}
+
+		// Keep other message handlers if any (e.g., for badge refresh, though that's usually popup -> background)
+		// For now, assume this listener is primarily for debug log updates.
+		// Return true if you intend to send a response asynchronously for other message types.
+		return false;
 	});
 	// --- End Debug Log Functionality ---
 
@@ -499,8 +616,10 @@ document.addEventListener('DOMContentLoaded', async () => {
 
 
 	// Initialize
-	addDebugLog('Popup opened. Initializing...');
+	addDebugLog('Popup opened. Initializing...'); // This will now be sent to background for storage
 	await loadGlobalSettings(); // Load global settings first
+	await loadDebugLogState(); // Load debug log enabled state and render if needed
+
 	const tabInfoLoaded = await getActiveTabInfo();
 	if (tabInfoLoaded && extensionEnabled) { // Only load domain rule if extension enabled and tab info loaded
 		await loadDomainRule();

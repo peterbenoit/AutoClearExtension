@@ -7,8 +7,9 @@ function clearAllStorage() {
 		// console.log('localStorage cleared by AutoClear Extension.');
 		if (typeof chrome.runtime.sendMessage === 'function') {
 			chrome.runtime.sendMessage({
-				type: 'debug-log',
+				type: 'log-debug-to-storage',
 				message: 'localStorage cleared.',
+				source: 'Content Script'
 			});
 		}
 
@@ -17,8 +18,9 @@ function clearAllStorage() {
 		// console.log('sessionStorage cleared by AutoClear Extension.');
 		if (typeof chrome.runtime.sendMessage === 'function') {
 			chrome.runtime.sendMessage({
-				type: 'debug-log',
+				type: 'log-debug-to-storage',
 				message: 'sessionStorage cleared.',
+				source: 'Content Script'
 			});
 		}
 
@@ -29,8 +31,9 @@ function clearAllStorage() {
 					// console.log('No IndexedDB databases found to clear.');
 					if (typeof chrome.runtime.sendMessage === 'function') {
 						chrome.runtime.sendMessage({
-							type: 'debug-log',
+							type: 'log-debug-to-storage',
 							message: 'No IndexedDB databases found to clear.',
+							source: 'Content Script'
 						});
 					}
 					return;
@@ -41,8 +44,9 @@ function clearAllStorage() {
 						// console.log(`IndexedDB database "${db.name}" deleted successfully by AutoClear Extension.`);
 						if (typeof chrome.runtime.sendMessage === 'function') {
 							chrome.runtime.sendMessage({
-								type: 'debug-log',
+								type: 'log-debug-to-storage',
 								message: `IndexedDB database "${db.name}" deleted successfully.`,
+								source: 'Content Script'
 							});
 						}
 					};
@@ -50,8 +54,9 @@ function clearAllStorage() {
 						// console.error(`Error deleting IndexedDB database "${db.name}":`, event.target.error);
 						if (typeof chrome.runtime.sendMessage === 'function') {
 							chrome.runtime.sendMessage({
-								type: 'debug-log',
+								type: 'log-debug-to-storage',
 								message: `Error deleting IndexedDB database "${db.name}": ${event.target.error}`,
+								source: 'Content Script - Error'
 							});
 						}
 					};
@@ -59,8 +64,9 @@ function clearAllStorage() {
 						// console.warn(`Deletion of IndexedDB database "${db.name}" is blocked. Close other connections.`);
 						if (typeof chrome.runtime.sendMessage === 'function') {
 							chrome.runtime.sendMessage({
-								type: 'debug-log',
+								type: 'log-debug-to-storage',
 								message: `Deletion of IndexedDB database "${db.name}" is blocked.`,
+								source: 'Content Script - Warn'
 							});
 						}
 					};
@@ -69,8 +75,9 @@ function clearAllStorage() {
 				// console.error('Error listing IndexedDB databases:', error);
 				if (typeof chrome.runtime.sendMessage === 'function') {
 					chrome.runtime.sendMessage({
-						type: 'debug-log',
+						type: 'log-debug-to-storage',
 						message: `Error listing IndexedDB databases: ${error}`,
+						source: 'Content Script - Error'
 					});
 				}
 			});
@@ -79,16 +86,18 @@ function clearAllStorage() {
 			// console.warn('indexedDB.databases() is not supported. Specific database names are required to delete them without this API.');
 			if (typeof chrome.runtime.sendMessage === 'function') {
 				chrome.runtime.sendMessage({
-					type: 'debug-log',
+					type: 'log-debug-to-storage',
 					message: 'indexedDB.databases() not supported. Cannot list all DBs for deletion.',
+					source: 'Content Script - Warn'
 				});
 			}
 		} else {
 			// console.log('IndexedDB API not available.');
 			if (typeof chrome.runtime.sendMessage === 'function') {
 				chrome.runtime.sendMessage({
-					type: 'debug-log',
+					type: 'log-debug-to-storage',
 					message: 'IndexedDB API not available.',
+					source: 'Content Script'
 				});
 			}
 		}
@@ -97,8 +106,9 @@ function clearAllStorage() {
 		// console.error('Error during storage clearing operation:', error);
 		if (typeof chrome.runtime.sendMessage === 'function') {
 			chrome.runtime.sendMessage({
-				type: 'debug-log',
+				type: 'log-debug-to-storage',
 				message: `Error during storage clearing operation: ${error}`,
+				source: 'Content Script - Error'
 			});
 		}
 	}
@@ -115,8 +125,9 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
 		sendResponse({ status: "success", message: "Storage cleared on command." });
 		if (typeof chrome.runtime.sendMessage === 'function') {
 			chrome.runtime.sendMessage({
-				type: 'debug-log',
+				type: 'log-debug-to-storage',
 				message: 'clearStorage command received and executed.',
+				source: 'Content Script'
 			});
 		}
 		return true; // Indicates that the response is sent asynchronously

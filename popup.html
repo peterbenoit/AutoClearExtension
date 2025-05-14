@@ -78,8 +78,23 @@
                 <label for="debug-log-enable">Enable Debug Log:</label>
                 <input type="checkbox" id="debug-log-enable" />
             </div>
-            <div id="debug-log-container" style="display: none">
-                <pre id="debug-log-output"></pre>
+            <div id="debug-log-controls" style="margin-top: 5px; display: none">
+                <button id="clear-debug-log-button">Clear Log</button>
+                <button id="toggle-timestamps-button">Toggle Timestamps</button>
+            </div>
+            <div
+                id="debug-log-list-container"
+                style="
+                    display: none;
+                    max-height: 150px;
+                    overflow-y: auto;
+                    border: 1px solid #ccc;
+                    padding: 5px;
+                    margin-top: 5px;
+                    background-color: #f9f9f9;
+                "
+            >
+                {/* Log entries will be populated here by popup.js */}
             </div>
         </fieldset>
 

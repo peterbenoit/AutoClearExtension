@@ -10,14 +10,20 @@ This entire prompt is IMPORTANT. Read it carefully.
 -   Do not anticipate future tasks or modify files outside the current segment
 -   Write code directly to files, not to the chat window
 -   If you encounter ambiguity, request clarification before proceeding
+-   There is no need to summarize the segment or provide a high-level overview
 
 ### CODE STANDARDS
 
 -   Follow JavaScript standard style (Tab indentation, single quotes)
--   Keep file size and function scope to a minimum. Break up logic logically.
+-   Keep file size and function scope to a minimum. Break up logic logically
 -   Write self-documenting code with minimal but strategic comments
 -   Include basic error handling for all user interactions and data operations
 -   Follow semantic HTML practices with appropriate accessibility attributes
+-   Split all UI logic into dedicated init*() or bind*() functions
+-   Call those from DOMContentLoaded, but never inline large blocks
+-   Keep the body of DOMContentLoaded to a minimum, ideally just a few lines
+-   Avoid deep nesting or wrapping entire files in event listeners
+-   When a function exceeds 40 lines or handles multiple concerns, split it
 
 ### TECHNICAL CONSTRAINTS
 
@@ -39,4 +45,4 @@ This entire prompt is IMPORTANT. Read it carefully.
 ### INSTRUCTIONS
 
 -   You are to follow the prompt in the following file:
-    -   `docs/segment.14.md`
+    -   `docs/segment.15.md`

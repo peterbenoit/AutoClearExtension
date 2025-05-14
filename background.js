@@ -32,6 +32,37 @@ async function initializeDomainRules() {
 	});
 }
 
+const MAX_DEBUG_LOG_ENTRIES = 50;
+
+async function logDebugMessage(message, source = 'Background') {
+	const timestamp = new Date().toISOString();
+	const logEntry = `[${timestamp} - ${source}] ${message}`;
+
+	console.log(logEntry); // Keep console logging for live debugging
+
+	try {
+		const result = await new Promise(resolve => chrome.storage.local.get('debugLog', resolve));
+		let logs = result.debugLog || [];
+		logs.unshift(logEntry); // Add new entry to the beginning (most recent first)
+		if (logs.length > MAX_DEBUG_LOG_ENTRIES) {
+			logs = logs.slice(0, MAX_DEBUG_LOG_ENTRIES); // Cap log size
+		}
+		await new Promise(resolve => chrome.storage.local.set({ debugLog: logs }, resolve));
+
+		// Notify popup if it's open to refresh its log view
+		if (typeof chrome.runtime.sendMessage === 'function') {
+			chrome.runtime.sendMessage({ type: 'debug-log-updated' }, () => {
+				// Check chrome.runtime.lastError to avoid errors if no popup is listening
+				if (chrome.runtime.lastError) {
+					// console.log('logDebugMessage: Popup not open or error sending message: ' + chrome.runtime.lastError.message);
+				}
+			});
+		}
+	} catch (error) {
+		console.error('[AutoClear Background] Error in logDebugMessage:', error);
+	}
+}
+
 // New function to check and expire TTL rules
 async function checkAndExpireTTLRules() {
 	// console.log('[AutoClear] Checking for expired TTL rules...');
@@ -47,33 +78,18 @@ async function checkAndExpireTTLRules() {
 				// console.log(`[AutoClear] TTL for domain "${domain}" expired at ${new Date(rule.expiresAt).toISOString()}. Changing to blacklist.`);
 				allRules[domain] = { mode: 'blacklist' }; // Convert to blacklist, implicitly removing ttlMinutes and expiresAt
 				rulesChanged = true;
-				if (typeof chrome.runtime.sendMessage === 'function') {
-					chrome.runtime.sendMessage({
-						type: 'debug-log',
-						message: `TTL for domain "${domain}" expired. Changed to blacklist.`,
-					}, () => void chrome.runtime.lastError);
-				}
+				logDebugMessage(`TTL for domain "${domain}" expired. Changed to blacklist.`);
 			}
 		}
 
 		if (rulesChanged) {
 			await new Promise(resolve => chrome.storage.local.set({ domainRules: allRules }, resolve));
 			// console.log('[AutoClear] Updated domain rules after expiring TTLs.');
-			if (typeof chrome.runtime.sendMessage === 'function') {
-				chrome.runtime.sendMessage({
-					type: 'debug-log',
-					message: 'Updated domain rules after expiring TTLs.',
-				}, () => void chrome.runtime.lastError);
-			}
+			logDebugMessage('Updated domain rules after expiring TTLs.');
 		}
 	} catch (error) {
 		// console.error('[AutoClear] Error in checkAndExpireTTLRules:', error);
-		if (typeof chrome.runtime.sendMessage === 'function') {
-			chrome.runtime.sendMessage({
-				type: 'debug-log',
-				message: `Error in checkAndExpireTTLRules: ${error.message}`,
-			}, () => void chrome.runtime.lastError);
-		}
+		logDebugMessage(`Error in checkAndExpireTTLRules: ${error.message}`, 'Error');
 	}
 }
 
@@ -89,12 +105,7 @@ async function getDomainRules(domain) {
 					// console.log(`[AutoClear] TTL for ${domain} has expired. Effective rule: blacklist.`);
 					// This rule is effectively a blacklist now for immediate decision making.
 					// checkAndExpireTTLRules will handle persisting this change to storage.
-					if (typeof chrome.runtime.sendMessage === 'function') {
-						chrome.runtime.sendMessage({
-							type: 'debug-log',
-							message: `TTL for ${domain} has expired. Effective rule: blacklist.`,
-						}, () => void chrome.runtime.lastError);
-					}
+					logDebugMessage(`TTL for ${domain} has expired. Effective rule: blacklist.`);
 					resolve({ mode: 'blacklist' });
 					return;
 				}
@@ -139,12 +150,7 @@ async function clearCookiesForDomain(domain, tabId, source = 'Automatic') {
 			cookie.domain.replace(/^\./, '') === normalizedDomain
 		);
 		if (cookies.length === 0) {
-			if (typeof chrome.runtime.sendMessage === 'function') {
-				chrome.runtime.sendMessage({
-					type: 'debug-log',
-					message: `(${source}) No cookies found for domain: ${domain}`,
-				}, () => void chrome.runtime.lastError);
-			}
+			logDebugMessage(`(${source}) No cookies found for domain: ${domain}`);
 			return;
 		}
 
@@ -159,30 +165,15 @@ async function clearCookiesForDomain(domain, tabId, source = 'Automatic') {
 				await chrome.cookies.remove({ url: url, name: cookie.name });
 				clearedCount++;
 				// Detailed debug log for each cookie removed
-				if (typeof chrome.runtime.sendMessage === 'function') {
-					chrome.runtime.sendMessage({
-						type: 'debug-log',
-						message: `(${source}) Cookie removed: ${cookie.name} (domain: ${cookie.domain}, path: ${cookie.path}, secure: ${cookie.secure}, httpOnly: ${cookie.httpOnly})`,
-					}, () => void chrome.runtime.lastError);
-				}
+				logDebugMessage(`(${source}) Cookie removed: ${cookie.name} (domain: ${cookie.domain}, path: ${cookie.path}, secure: ${cookie.secure}, httpOnly: ${cookie.httpOnly})`);
 			} catch (removeError) {
 				console.warn(`[AutoClear] Error removing cookie ${cookie.name} for URL ${url}:`, removeError);
-				if (typeof chrome.runtime.sendMessage === 'function') {
-					chrome.runtime.sendMessage({
-						type: 'debug-log',
-						message: `(${source}) Error removing cookie ${cookie.name} from ${domain}: ${removeError.message}`,
-					}, () => void chrome.runtime.lastError);
-				}
+				logDebugMessage(`(${source}) Error removing cookie ${cookie.name} from ${domain}: ${removeError.message}`, 'Error');
 			}
 		}
 
 		if (clearedCount > 0) {
-			if (typeof chrome.runtime.sendMessage === 'function') {
-				chrome.runtime.sendMessage({
-					type: 'debug-log',
-					message: `(${source}) Cleared ${clearedCount} cookie(s) for domain: ${domain}`,
-				}, () => void chrome.runtime.lastError);
-			}
+			logDebugMessage(`(${source}) Cleared ${clearedCount} cookie(s) for domain: ${domain}`);
 		}
 		// Mark cookies as cleared for this domain on this tab
 		if (tabId) {
@@ -194,12 +185,7 @@ async function clearCookiesForDomain(domain, tabId, source = 'Automatic') {
 
 	} catch (error) {
 		console.error(`[AutoClear] Error getting cookies for domain ${domain}:`, error);
-		if (typeof chrome.runtime.sendMessage === 'function') {
-			chrome.runtime.sendMessage({
-				type: 'debug-log',
-				message: `(${source}) Error getting cookies for ${domain}: ${error.message}`,
-			}, () => void chrome.runtime.lastError);
-		}
+		logDebugMessage(`(${source}) Error getting cookies for ${domain}: ${error.message}`, 'Error');
 	}
 }
 // --- End Cookie Clearing Logic ---
@@ -289,20 +275,10 @@ chrome.tabs.onUpdated.addListener(async (tabId, changeInfo, tab) => {
 				chrome.tabs.sendMessage(tabId, { action: "clearStorage" }, (response) => {
 					if (chrome.runtime.lastError) {
 						// console.warn(`[AutoClear] Error sending clearStorage to tab ${tabId} for ${domain}: ${chrome.runtime.lastError.message}`);
-						if (typeof chrome.runtime.sendMessage === 'function') {
-							chrome.runtime.sendMessage({
-								type: 'debug-log',
-								message: `Error sending clearStorage to tab ${tabId} for ${domain}: ${chrome.runtime.lastError.message}`,
-							}, () => void chrome.runtime.lastError);
-						}
+						logDebugMessage(`Error sending clearStorage to tab ${tabId} for ${domain}: ${chrome.runtime.lastError.message}`, 'Error');
 					} else {
 						// console.log(`[AutoClear] clearStorage message sent to tab ${tabId} for ${domain}. Response:`, response ? JSON.stringify(response) : 'No response');
-						if (typeof chrome.runtime.sendMessage === 'function') {
-							chrome.runtime.sendMessage({
-								type: 'debug-log',
-								message: `clearStorage message sent to tab ${tabId} for ${domain}. Response: ${response ? JSON.stringify(response) : 'No response'}`,
-							}, () => void chrome.runtime.lastError);
-						}
+						logDebugMessage(`clearStorage message sent to tab ${tabId} for ${domain}. Response: ${response ? JSON.stringify(response) : 'No response'}`);
 					}
 				});
 
@@ -331,12 +307,7 @@ chrome.tabs.onRemoved.addListener(async (tabId, removeInfo) => {
 	// Clean up cookie clearing tracking for the removed tab
 	if (clearedCookiesForTab[tabId]) {
 		delete clearedCookiesForTab[tabId];
-		if (typeof chrome.runtime.sendMessage === 'function') {
-			chrome.runtime.sendMessage({
-				type: 'debug-log',
-				message: `Cleaned cookie clearing state for closed tab ${tabId}.`,
-			}, () => void chrome.runtime.lastError);
-		}
+		logDebugMessage(`Cleaned cookie clearing state for closed tab ${tabId}.`);
 	}
 	// If the removed tab was active, the onActivated event for the new active tab will handle the badge.
 	// Or, we could check if the removed tab was active and clear the badge if no other tabs are left or focus changes.
@@ -378,8 +349,24 @@ chrome.tabs.onActivated.addListener(async (activeInfo) => {
 // Message listener
 chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
 	// Added to prevent interference with the new debug log listener in popup.js
-	if (request.type === 'debug-log') {
-		return false; // Do not handle here, let popup.js handle it.
+	// if (request.type === 'debug-log') { // This specific check is no longer needed as popup won't send this type
+	// 	return false;
+	// }
+
+	if (request.type === 'log-debug-to-storage') {
+		// Message from popup or content script to log something
+		let source = 'Unknown';
+		if (sender.tab && sender.tab.url) { // From content script
+			try {
+				source = `Content Script (${new URL(sender.tab.url).hostname})`;
+			} catch (e) { source = 'Content Script'; }
+		} else if (sender.id === chrome.runtime.id && !sender.tab) { // From popup
+			source = request.source || 'Popup'; // Allow source to be specified in request
+		}
+		logDebugMessage(request.message, source);
+		// No sendResponse needed, or send simple ack
+		sendResponse({ status: 'debug logged' });
+		return true; // Indicate async response if any part of logDebugMessage was async (it is)
 	}
 
 	if (request.action === "refreshBadgeForDomain") {
@@ -417,26 +404,26 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
 
 // Initialize on startup
 initializeDomainRules().then(async (rules) => { // Made the callback async
-	// console.log('[AutoClear] Domain rules initialized:', rules);
+	logDebugMessage('Domain rules initialized.', 'System');
 	await checkAndExpireTTLRules(); // Initial check on startup
 
 	// Set up periodic check for TTL expiration
 	setInterval(checkAndExpireTTLRules, 10 * 60 * 1000); // Every 10 minutes
-	// console.log('[AutoClear] TTL rule expiration check interval (10 min) started.');
+	logDebugMessage('TTL rule expiration check interval (10 min) started.', 'System');
 
 	// Set initial badge for currently active tab
 	try {
 		const [activeTab] = await chrome.tabs.query({ active: true, currentWindow: true });
 		if (activeTab && activeTab.id && activeTab.url) {
-			// console.log(`[AutoClear] Setting initial badge for active tab ${activeTab.id}`);
+			logDebugMessage(`Setting initial badge for active tab ${activeTab.id}`, 'System');
 			const domain = getDomainFromUrl(activeTab.url);
 			await updateIconBadge(domain);
 		} else {
-			// console.log('[AutoClear] No active tab found on startup to set initial badge, or active tab has no URL.');
+			logDebugMessage('No active tab found on startup to set initial badge, or active tab has no URL.', 'System');
 			await updateIconBadge(null); // No active tab with URL, clear badge
 		}
 	} catch (error) {
-		// console.error('[AutoClear] Error setting initial badge:', error.message);
+		logDebugMessage(`Error setting initial badge: ${error.message}`, 'Error');
 		await updateIconBadge(null); // Clear badge on error
 	}
 });
