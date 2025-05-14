@@ -135,6 +135,26 @@ globalThis.initializeDomainRules = initializeDomainRules;
 globalThis.getDomainRules = getDomainRules;
 globalThis.updateDomainRule = updateDomainRule;
 
+// --- New/Refactored Core Logic Functions ---
+
+async function shouldClearForDomain(domain) {
+	if (!domain) return false;
+	const rule = await getDomainRules(domain); // getDomainRules handles TTL expiry for effective rule
+	return rule && rule.mode === 'blacklist';
+}
+
+async function clearAllStorageForDomain(domain, tabId, source = 'Automatic') {
+	if (!domain || !tabId) return;
+	logDebugMessage(`(${source}) Requesting storage clear for ${domain} on tab ${tabId}`);
+	chrome.tabs.sendMessage(tabId, { action: "clearStorage" }, (response) => {
+		if (chrome.runtime.lastError) {
+			logDebugMessage(`(${source}) Error sending clearStorage to tab ${tabId} for ${domain}: ${chrome.runtime.lastError.message}`, 'Error');
+		} else {
+			logDebugMessage(`(${source}) clearStorage message sent to tab ${tabId} for ${domain}. Response: ${response ? JSON.stringify(response) : 'No response'}`);
+		}
+	});
+}
+
 // --- Cookie Clearing Logic ---
 const clearedCookiesForTab = {}; // Stores tabId: Set<domain> for which cookies have been cleared
 
@@ -147,7 +167,7 @@ async function clearCookiesForDomain(domain, tabId, source = 'Automatic') {
 	try {
 		const allCookies = await chrome.cookies.getAll({});
 		const cookies = allCookies.filter(cookie =>
-			cookie.domain.replace(/^\./, '') === normalizedDomain
+			cookie.domain.replace(/^\./, '') === normalizedDomain // Ensure consistent comparison
 		);
 		if (cookies.length === 0) {
 			logDebugMessage(`(${source}) No cookies found for domain: ${domain}`);
@@ -158,17 +178,15 @@ async function clearCookiesForDomain(domain, tabId, source = 'Automatic') {
 		for (const cookie of cookies) {
 			const protocol = cookie.secure ? 'https://' : 'http://';
 			// The URL must be absolute and start with http/https.
-			// Cookie domain might start with '.', remove it for URL construction.
 			const cookieDomain = cookie.domain.startsWith('.') ? cookie.domain.substring(1) : cookie.domain;
 			const url = protocol + cookieDomain + cookie.path;
 			try {
 				await chrome.cookies.remove({ url: url, name: cookie.name });
 				clearedCount++;
-				// Detailed debug log for each cookie removed
 				logDebugMessage(`(${source}) Cookie removed: ${cookie.name} (domain: ${cookie.domain}, path: ${cookie.path}, secure: ${cookie.secure}, httpOnly: ${cookie.httpOnly})`);
 			} catch (removeError) {
 				console.warn(`[AutoClear] Error removing cookie ${cookie.name} for URL ${url}:`, removeError);
-				logDebugMessage(`(${source}) Error removing cookie ${cookie.name} from ${domain}: ${removeError.message}`, 'Error');
+				logDebugMessage(`(${source}) Error removing cookie ${cookie.name} for URL ${url}: ${removeError.message}`, 'Error');
 			}
 		}
 
@@ -189,6 +207,74 @@ async function clearCookiesForDomain(domain, tabId, source = 'Automatic') {
 	}
 }
 // --- End Cookie Clearing Logic ---
+
+// --- Event Handler Functions ---
+
+async function handleTabUpdate(tabId, changeInfo, tab) {
+	await checkAndExpireTTLRules();
+
+	if (tab.active && (changeInfo.url || changeInfo.status === 'complete')) {
+		const domainForBadge = getDomainFromUrl(tab.url);
+		await updateIconBadge(domainForBadge);
+	}
+
+	let urlToProcess = null;
+	if (changeInfo.url) {
+		urlToProcess = changeInfo.url;
+	} else if (changeInfo.status === 'complete' && tab && tab.url) {
+		urlToProcess = tab.url;
+	}
+
+	if (urlToProcess) {
+		const domain = getDomainFromUrl(urlToProcess);
+		if (domain) {
+			if (await shouldClearForDomain(domain)) {
+				await clearAllStorageForDomain(domain, tabId, 'Automatic - Tab Update');
+
+				if (!clearedCookiesForTab[tabId] || !clearedCookiesForTab[tabId].has(domain) || changeInfo.url) {
+					if (changeInfo.url && clearedCookiesForTab[tabId]) {
+						clearedCookiesForTab[tabId].clear();
+					}
+					await clearCookiesForDomain(domain, tabId, 'Automatic - Tab Update');
+				}
+			} else {
+				if (clearedCookiesForTab[tabId]) {
+					clearedCookiesForTab[tabId].delete(domain);
+				}
+			}
+		}
+	}
+}
+
+async function handleTabRemoval(tabId, removeInfo) {
+	await checkAndExpireTTLRules();
+	if (clearedCookiesForTab[tabId]) {
+		delete clearedCookiesForTab[tabId];
+		logDebugMessage(`Cleaned cookie clearing state for closed tab ${tabId}.`);
+	}
+}
+
+async function handleTabActivation(activeInfo) {
+	await checkAndExpireTTLRules();
+	try {
+		const tab = await chrome.tabs.get(activeInfo.tabId);
+		if (tab && tab.url) {
+			const domain = getDomainFromUrl(tab.url);
+			await updateIconBadge(domain);
+
+			if (domain && await shouldClearForDomain(domain)) {
+				if (!clearedCookiesForTab[activeInfo.tabId] || !clearedCookiesForTab[activeInfo.tabId].has(domain)) {
+					await clearCookiesForDomain(domain, activeInfo.tabId, 'Automatic - Tab Activated');
+				}
+			}
+		} else {
+			await updateIconBadge(null);
+		}
+	} catch (error) {
+		logDebugMessage(`Error getting tab info on activation for tab ${activeInfo.tabId}: ${error.message}`, 'Error');
+		await updateIconBadge(null);
+	}
+}
 
 // Helper function to update the extension icon badge
 async function updateIconBadge(domain) {
@@ -244,107 +330,10 @@ function getDomainFromUrl(urlString) {
 	}
 }
 
-chrome.tabs.onUpdated.addListener(async (tabId, changeInfo, tab) => {
-	await checkAndExpireTTLRules(); // Run expiration check
-
-	// Update badge if the updated tab is the active one and its URL or status might have changed badge state
-	if (tab.active && (changeInfo.url || changeInfo.status === 'complete')) {
-		// console.log(`[AutoClear] Active tab ${tabId} updated. URL: ${tab.url}, Status: ${changeInfo.status}, changeInfo.url: ${changeInfo.url}`);
-		const domain = getDomainFromUrl(tab.url);
-		await updateIconBadge(domain);
-	}
-
-	let urlToProcess = null;
-	// Prioritize changeInfo.url if available (direct navigation)
-	if (changeInfo.url) {
-		urlToProcess = changeInfo.url;
-	} else if (changeInfo.status === 'complete' && tab && tab.url) {
-		// Fallback to tab.url when page load completes, to catch cases where changeInfo.url wasn't present
-		// or to re-evaluate rules upon full page load.
-		urlToProcess = tab.url;
-	}
-
-	if (urlToProcess) {
-		const domain = getDomainFromUrl(urlToProcess);
-		if (domain) {
-			const rule = await getDomainRules(domain); // This gets the effective rule
-			// console.log(`[AutoClear] Effective rule for ${domain} on tab ${tabId} update:`, rule);
-			if (rule && rule.mode === 'blacklist') {
-				// console.log(`[AutoClear] Blacklist rule for ${domain}, sending clearStorage to tab ${tabId}`);
-				// Clear storage
-				chrome.tabs.sendMessage(tabId, { action: "clearStorage" }, (response) => {
-					if (chrome.runtime.lastError) {
-						// console.warn(`[AutoClear] Error sending clearStorage to tab ${tabId} for ${domain}: ${chrome.runtime.lastError.message}`);
-						logDebugMessage(`Error sending clearStorage to tab ${tabId} for ${domain}: ${chrome.runtime.lastError.message}`, 'Error');
-					} else {
-						// console.log(`[AutoClear] clearStorage message sent to tab ${tabId} for ${domain}. Response:`, response ? JSON.stringify(response) : 'No response');
-						logDebugMessage(`clearStorage message sent to tab ${tabId} for ${domain}. Response: ${response ? JSON.stringify(response) : 'No response'}`);
-					}
-				});
-
-				// Clear cookies if not already done for this domain on this tab in this "session"
-				// A simple check: if the URL itself changed, we might want to re-clear.
-				// Or, if it's the first time we're seeing this blacklisted domain on this tab.
-				if (!clearedCookiesForTab[tabId] || !clearedCookiesForTab[tabId].has(domain) || changeInfo.url) {
-					if (changeInfo.url) { // If URL changed, reset cookie cleared status for this tab
-						if (clearedCookiesForTab[tabId]) clearedCookiesForTab[tabId].clear();
-					}
-					await clearCookiesForDomain(domain, tabId, 'Automatic - Tab Update');
-				}
-			} else {
-				// If domain is no longer blacklisted (or never was), clear its tracking from clearedCookiesForTab for this tab
-				if (clearedCookiesForTab[tabId]) {
-					clearedCookiesForTab[tabId].delete(domain);
-				}
-			}
-		}
-	}
-});
-
-chrome.tabs.onRemoved.addListener(async (tabId, removeInfo) => {
-	await checkAndExpireTTLRules(); // Run expiration check
-	// console.log(`[AutoClear] Tab ${tabId} was removed. TTL rules checked. No message sent as content script is inactive.`);
-	// Clean up cookie clearing tracking for the removed tab
-	if (clearedCookiesForTab[tabId]) {
-		delete clearedCookiesForTab[tabId];
-		logDebugMessage(`Cleaned cookie clearing state for closed tab ${tabId}.`);
-	}
-	// If the removed tab was active, the onActivated event for the new active tab will handle the badge.
-	// Or, we could check if the removed tab was active and clear the badge if no other tabs are left or focus changes.
-	// For simplicity, onActivated will handle the new active tab's badge.
-});
-
-// New listener for tab activation
-chrome.tabs.onActivated.addListener(async (activeInfo) => {
-	// console.log(`[AutoClear] Tab activated: ${activeInfo.tabId}`);
-	await checkAndExpireTTLRules(); // Ensure rules are fresh
-	try {
-		const tab = await chrome.tabs.get(activeInfo.tabId);
-		if (tab && tab.url) {
-			const domain = getDomainFromUrl(tab.url);
-			await updateIconBadge(domain);
-
-			// Also check if cookies need to be cleared for the newly activated tab's domain
-			if (domain) {
-				const rule = await getDomainRules(domain);
-				if (rule && rule.mode === 'blacklist') {
-					// Check if cookies were already cleared for this domain on this tab
-					// This simple check might re-clear if user switches tabs back and forth.
-					// More sophisticated "session" tracking might be needed if this is too aggressive.
-					// For now, we clear if not in the set for this tab.
-					if (!clearedCookiesForTab[activeInfo.tabId] || !clearedCookiesForTab[activeInfo.tabId].has(domain)) {
-						await clearCookiesForDomain(domain, activeInfo.tabId, 'Automatic - Tab Activated');
-					}
-				}
-			}
-		} else {
-			await updateIconBadge(null); // Clear badge if tab has no URL (e.g. new tab page before navigation)
-		}
-	} catch (error) {
-		// console.warn(`[AutoClear] Error getting tab info on activation for tab ${activeInfo.tabId}:`, error.message);
-		await updateIconBadge(null); // Clear badge on error
-	}
-});
+// Event Listeners
+chrome.tabs.onUpdated.addListener(handleTabUpdate);
+chrome.tabs.onRemoved.addListener(handleTabRemoval);
+chrome.tabs.onActivated.addListener(handleTabActivation);
 
 // Message listener
 chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
@@ -389,7 +378,8 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
 	if (request.action === "manualClearCookies") {
 		(async () => {
 			if (request.domain) {
-				await clearCookiesForDomain(request.domain, null, 'Manual'); // tabId is null for manual clear from popup
+				// For manual clear, tabId can be null as it's not tied to a specific tab's lifecycle for clearedCookiesForTab tracking
+				await clearCookiesForDomain(request.domain, null, 'Manual');
 				sendResponse({ status: "success", message: `Cookies cleared for ${request.domain}` });
 			} else {
 				sendResponse({ status: "error", message: "No domain specified for cookie clearing." });

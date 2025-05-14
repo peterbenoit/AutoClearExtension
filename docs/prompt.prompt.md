@@ -1,4 +1,4 @@
-# VSCode AI Agent Instructions - v1.0
+# VSCode AI Agent Instructions - v1.1
 
 ## Role: Senior Full-Stack Engineer
 
@@ -17,6 +17,9 @@ This entire prompt is IMPORTANT. Read it carefully.
 -   Follow JavaScript standard style (Tab indentation, single quotes)
 -   Keep file size and function scope to a minimum. Break up logic logically
 -   Write self-documenting code with minimal but strategic comments
+-   Use inline comments only when they clarify critical behavior, prevent breakage, or mark actionable work (e.g., `// TODO`, `// WARN`)
+-   Avoid comments that describe version history, personal notes, or obvious logic (e.g., `// this used to do something else`)
+-   Comments should support maintainability, not clutter the code
 -   Include basic error handling for all user interactions and data operations
 -   Follow semantic HTML practices with appropriate accessibility attributes
 -   Split all UI logic into dedicated init*() or bind*() functions
@@ -24,6 +27,7 @@ This entire prompt is IMPORTANT. Read it carefully.
 -   Keep the body of DOMContentLoaded to a minimum, ideally just a few lines
 -   Avoid deep nesting or wrapping entire files in event listeners
 -   When a function exceeds 40 lines or handles multiple concerns, split it
+-   Use JSDoc for all public functions and classes
 
 ### TECHNICAL CONSTRAINTS
 
