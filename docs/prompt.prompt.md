@@ -10,7 +10,7 @@ This entire prompt is IMPORTANT. Read it carefully.
 -   Do not anticipate future tasks or modify files outside the current segment
 -   Write code directly to files, not to the chat window
 -   If you encounter ambiguity, request clarification before proceeding
--   There is no need to summarize the segment or provide a high-level overview
+-   There is no need to summarize the segment, provide a high-level overview or show me the steps
 
 ### CODE STANDARDS
 
@@ -45,4 +45,4 @@ This entire prompt is IMPORTANT. Read it carefully.
 ### INSTRUCTIONS
 
 -   You are to follow the prompt in the following file:
-    -   `docs/segment.15.md`
+    -   `docs/segment.16.md`
