@@ -21,18 +21,19 @@
 body {
 	font-family: 'Segoe UI', -apple-system, BlinkMacSystemFont, Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
 	margin: 0;
-	padding: 15px;
-	min-width: 380px;
+	padding: 20px;
+	min-width: 400px;
+	max-width: 450px;
 	background-color: #f5f7fa;
 	color: var(--text-color);
-	line-height: 1.5;
+	line-height: 1.6;
 }
 
 h1 {
 	text-align: center;
-	font-size: 1.5em;
-	margin: 0 0 20px 0;
-	padding-bottom: 12px;
+	font-size: 1.4em;
+	margin: 0 0 24px 0;
+	padding-bottom: 16px;
 	color: var(--primary-color);
 	border-bottom: 2px solid var(--primary-color);
 	font-weight: 600;
@@ -40,9 +41,9 @@ h1 {
 }
 
 fieldset {
-	border: none;
+	border: 1px solid var(--border-color);
 	border-radius: var(--border-radius);
-	padding: 8px;
+	padding: 16px;
 	margin-bottom: 20px;
 	background-color: var(--card-bg);
 	box-shadow: var(--card-shadow);
@@ -50,12 +51,10 @@ fieldset {
 
 legend {
 	font-weight: 600;
-	font-size: 1.1em;
-	padding: 0;
+	font-size: 1.0em;
+	padding: 0 8px;
 	color: var(--primary-color);
-	position: relative;
-	top: 15px;
-	margin-bottom: 10px;
+	background-color: var(--card-bg);
 }
 
 /* Focus styles for better accessibility */
@@ -74,8 +73,16 @@ select:focus,
 	/* Adjust for tab buttons if needed */
 }
 
-.control-group div {
-	margin-bottom: 12px;
+.control-group {
+	display: flex;
+	flex-direction: column;
+	gap: 12px;
+}
+
+.control-group>div {
+	display: flex;
+	align-items: center;
+	gap: 8px;
 }
 
 label {
@@ -239,39 +246,44 @@ button:active {
 
 /* Rule display */
 #current-rule-display {
-	margin-top: 15px;
-	padding: 10px;
+	margin-top: 16px;
+	padding: 12px;
 	background-color: rgba(74, 108, 247, 0.05);
 	border-radius: var(--border-radius);
+	border-left: 3px solid var(--primary-color);
 }
 
 #current-rule-display h3 {
 	font-size: 0.95em;
-	margin: 0 0 5px 0;
-	color: var(--text-color);
+	margin: 0 0 8px 0;
+	color: var(--dark-color);
+	font-weight: 600;
 }
 
 #current-rule-display p {
-	font-style: italic;
+	font-size: 0.9em;
 	color: var(--text-muted);
 	margin: 0;
+	line-height: 1.4;
 }
 
 /* Rules summary list */
 #stored-rules-summary-section ul {
 	list-style-type: none;
 	padding-left: 0;
-	max-height: 150px;
+	max-height: 120px;
 	overflow-y: auto;
 	margin: 0;
+	border: 1px solid var(--border-color);
+	border-radius: var(--border-radius);
+	background-color: white;
 }
 
 #stored-rules-summary-section li {
-	padding: 8px 10px;
-	font-size: 0.9em;
-	border-bottom: 1px solid var(--border-color);
-	display: flex;
-	justify-content: space-between;
+	padding: 10px 12px;
+	font-size: 0.85em;
+	border-bottom: 1px solid #f0f0f0;
+	line-height: 1.4;
 }
 
 #stored-rules-summary-section li:last-child {
@@ -279,7 +291,7 @@ button:active {
 }
 
 #stored-rules-summary-section li:hover {
-	background-color: rgba(74, 108, 247, 0.05);
+	background-color: rgba(74, 108, 247, 0.04);
 }
 
 /* Debug log styles */
@@ -328,6 +340,7 @@ hr {
 #ttl-section {
 	display: flex;
 	align-items: center;
+	gap: 8px;
 }
 
 #ttl-section label {
@@ -335,9 +348,15 @@ hr {
 	flex-shrink: 0;
 }
 
+#ttl-section span {
+	color: var(--text-muted);
+	font-size: 0.9em;
+}
+
 /* Button groups */
 .button-group {
 	display: flex;
-	gap: 8px;
+	gap: 10px;
 	flex-wrap: wrap;
+	align-items: center;
 }

@@ -1,203 +1,81 @@
 <!DOCTYPE html>
 <html>
-    <head>
-        <title>AutoClear Extension Popup</title>
-        <link rel="stylesheet" href="style.css" />
-        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    </head>
-    <body>
-        <h1>AutoClear Settings</h1>
+<head>
+    <title>AutoClear Extension</title>
+    <link rel="stylesheet" href="style.css" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+</head>
+<body>
+    <h1>AutoClear Settings</h1>
 
-        <fieldset id="global-settings-section">
-            <legend>Global Settings</legend>
-            <div id="global-controls" class="control-group">
-                <div>
-                    <input type="checkbox" id="global-enable-toggle" />
-                    <label for="global-enable-toggle">Enable AutoClearExtension</label>
-                </div>
-                <button id="reset-all-rules-button">Reset All Rules</button>
-                <p id="global-status-message" class="status-message"></p>
-            </div>
-        </fieldset>
-
-        <fieldset id="current-domain-rule-section">
-            <legend>Rule for Current Domain</legend>
-            <div id="domain-info">
-                <p>Current Domain: <strong id="current-domain">Loading...</strong></p>
-            </div>
-
-            <div id="rule-editor">
-                <label for="rule-mode">Mode:</label>
-                <select id="rule-mode">
-                    <option value="off">Disable (Do Nothing)</option>
-                    <option value="blacklist">Always Clear (Blacklist)</option>
-                    <option value="allow">Temporarily Allow</option>
-                </select>
-
-                <div id="ttl-section" style="display: none">
-                    <label for="ttl-value">Allow for:</label>
-                    <input type="number" id="ttl-value" min="1" value="60" />
-                    <span>minutes</span>
-                </div>
-
-                <div class="button-group">
-                    <button id="save-rule-button">Save Rule</button>
-                    <button id="clear-cookies-now-button" disabled>Clear Cookies Now</button>
-                </div>
-                <p id="status-message" class="status-message"></p>
-            </div>
-
-            <div id="current-rule-display" style="margin-top: 10px">
-                <h3>Current Effective Rule:</h3>
-                <p id="current-rule-text">Loading rule...</p>
-            </div>
-        </fieldset>
-
-        <fieldset id="stored-rules-summary-fieldset">
-            <legend>Stored Rules Summary</legend>
-            <div id="stored-rules-summary-section" class="control-group">
-                <ul id="stored-rules-list"></ul>
-                <p id="no-rules-stored-message" style="display: none">
-                    No specific domain rules are currently stored.
-                </p>
-            </div>
-        </fieldset>
-
-        <fieldset id="debug-log-section">
-            <legend>Debug Log</legend>
+    <fieldset id="global-settings-section">
+        <legend>Global Settings</legend>
+        <div id="global-controls" class="control-group">
             <div>
-                <input type="checkbox" id="debug-log-enable" />
-                <label for="debug-log-enable">Enable Debug Log</label>
+                <input type="checkbox" id="global-enable-toggle" />
+                <label for="global-enable-toggle">Enable AutoClear Extension</label>
             </div>
-            <div
-                id="debug-log-controls"
-                class="button-group"
-                style="margin-top: 5px; display: none"
-            >
-                <button id="clear-debug-log-button">Clear Log</button>
-                <button id="toggle-timestamps-button">Toggle Timestamps</button>
-            </div>
-            <div id="debug-log-list-container" style="display: none"></div>
-        </fieldset>
-
-        <div class="container">
-            <h1>AutoClear</h1>
-            <div class="tabs">
-                <button
-                    id="rulesTab"
-                    role="tab"
-                    aria-selected="true"
-                    aria-controls="rulesPanel"
-                    tabindex="0"
-                >
-                    Rules
-                </button>
-                <button
-                    id="settingsTab"
-                    role="tab"
-                    aria-selected="false"
-                    aria-controls="settingsPanel"
-                    tabindex="0"
-                >
-                    Settings
-                </button>
-                <button
-                    id="debugTab"
-                    role="tab"
-                    aria-selected="false"
-                    aria-controls="debugPanel"
-                    tabindex="0"
-                >
-                    Debug
-                </button>
-            </div>
-
-            <div id="rulesPanel" role="tabpanel" aria-labelledby="rulesTab">
-                <div class="rule-input-container">
-                    <input
-                        type="text"
-                        id="domainPattern"
-                        placeholder="Enter domain pattern (e.g., *.example.com)"
-                        aria-label="Domain pattern"
-                    />
-                    <select id="clearOption" aria-label="Select what to clear">
-                        <option value="cookies">Cookies</option>
-                        <option value="localStorage">Local Storage</option>
-                        <option value="sessionStorage">Session Storage</option>
-                        <option value="cache">Cache</option>
-                        <option value="all">All</option>
-                    </select>
-                    <div class="ttl-input-container">
-                        <input
-                            type="number"
-                            id="ttlValue"
-                            placeholder="TTL (minutes, optional)"
-                            min="1"
-                            aria-label="Time to live in minutes"
-                        />
-                    </div>
-                    <button id="addRule" aria-label="Add new rule">Add Rule</button>
-                </div>
-                <div
-                    id="rulesList"
-                    aria-live="polite"
-                    aria-atomic="true"
-                    aria-label="List of current rules"
-                >
-                    <!-- Rules will be dynamically added here -->
-                </div>
-                <button id="resetRules" class="danger-button" aria-label="Reset all rules">
-                    Reset Rules
-                </button>
-            </div>
-
-            <div id="settingsPanel" role="tabpanel" aria-labelledby="settingsTab" hidden>
-                <div class="settings-group">
-                    <label for="autoClearEnabled">Enable AutoClear:</label>
-                    <input
-                        type="checkbox"
-                        id="autoClearEnabled"
-                        aria-describedby="autoClearEnabledDescription"
-                    />
-                    <p id="autoClearEnabledDescription" class="setting-description">
-                        Toggle automatic clearing based on defined rules.
-                    </p>
-                </div>
-                <div class="settings-group">
-                    <label for="showNotifications">Show Notifications:</label>
-                    <input
-                        type="checkbox"
-                        id="showNotifications"
-                        aria-describedby="showNotificationsDescription"
-                    />
-                    <p id="showNotificationsDescription" class="setting-description">
-                        Display a notification when data is cleared.
-                    </p>
-                </div>
-                <!-- Add more settings here as needed -->
-            </div>
-
-            <div id="debugPanel" role="tabpanel" aria-labelledby="debugTab" hidden>
-                <button id="toggleDebug" aria-controls="debugLogContainer" aria-expanded="false">
-                    Show Debug Log
-                </button>
-                <div id="debugLogContainer" hidden aria-hidden="true">
-                    <div
-                        id="debugLog"
-                        role="log"
-                        aria-live="polite"
-                        aria-atomic="false"
-                        aria-label="Debug log messages"
-                    >
-                        <!-- Debug messages will appear here -->
-                    </div>
-                    <button id="clearLog" aria-label="Clear debug log">Clear Log</button>
-                    <button id="copyDebugLog" aria-label="Copy debug log to clipboard">
-                        Copy Log
-                    </button>
-                </div>
-            </div>
+            <button id="reset-all-rules-button">Reset All Rules</button>
+            <p id="global-status-message" class="status-message"></p>
         </div>
-        <script src="popup.js"></script>
-    </body>
+    </fieldset>
+
+    <fieldset id="current-domain-rule-section">
+        <legend>Rule for Current Domain</legend>
+        <div id="domain-info">
+            <p>Current Domain: <strong id="current-domain">Loading...</strong></p>
+        </div>
+
+        <div id="rule-editor">
+            <label for="rule-mode">Mode:</label>
+            <select id="rule-mode">
+                <option value="off">Disable (Do Nothing)</option>
+                <option value="blacklist">Always Clear (Blacklist)</option>
+                <option value="allow">Temporarily Allow</option>
+            </select>
+
+            <div id="ttl-section" style="display: none">
+                <label for="ttl-value">Allow for:</label>
+                <input type="number" id="ttl-value" min="1" value="60" />
+                <span>minutes</span>
+            </div>
+
+            <div class="button-group">
+                <button id="save-rule-button">Save Rule</button>
+                <button id="clear-cookies-now-button" disabled>Clear Cookies Now</button>
+            </div>
+            <p id="status-message" class="status-message"></p>
+        </div>
+
+        <div id="current-rule-display">
+            <h3>Current Effective Rule:</h3>
+            <p id="current-rule-text">Loading rule...</p>
+        </div>
+    </fieldset>
+
+    <fieldset id="stored-rules-summary-fieldset">
+        <legend>Stored Rules Summary</legend>
+        <div id="stored-rules-summary-section" class="control-group">
+            <ul id="stored-rules-list"></ul>
+            <p id="no-rules-stored-message" style="display: none">
+                No specific domain rules are currently stored.
+            </p>
+        </div>
+    </fieldset>
+
+    <fieldset id="debug-log-section">
+        <legend>Debug Log</legend>
+        <div>
+            <input type="checkbox" id="debug-log-enable" />
+            <label for="debug-log-enable">Enable Debug Log</label>
+        </div>
+        <div id="debug-log-controls" class="button-group" style="margin-top: 5px; display: none">
+            <button id="clear-debug-log-button">Clear Log</button>
+            <button id="toggle-timestamps-button">Toggle Timestamps</button>
+        </div>
+        <div id="debug-log-list-container" style="display: none"></div>
+    </fieldset>
+
+    <script src="popup.js"></script>
+</body>
 </html>
