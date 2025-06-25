@@ -18,6 +18,8 @@ chrome.cookies.getAll({ domain: 'medium.com' }, cookies => {
 	})));
 });
 
+let tabUrls = {}; // To track the URL of each tab
+
 async function initializeDomainRules() {
 	return new Promise((resolve) => {
 		chrome.storage.local.get('domainRules', (result) => {
@@ -143,117 +145,76 @@ async function shouldClearForDomain(domain) {
 	return rule && rule.mode === 'blacklist';
 }
 
-async function clearAllStorageForDomain(domain, tabId, source = 'Automatic') {
-	if (!domain || !tabId) return;
-	logDebugMessage(`(${source}) Requesting storage clear for ${domain} on tab ${tabId}`);
-	chrome.tabs.sendMessage(tabId, { action: "clearStorage" }, (response) => {
-		if (chrome.runtime.lastError) {
-			logDebugMessage(`(${source}) Error sending clearStorage to tab ${tabId} for ${domain}: ${chrome.runtime.lastError.message}`, 'Error');
-		} else {
-			logDebugMessage(`(${source}) clearStorage message sent to tab ${tabId} for ${domain}. Response: ${response ? JSON.stringify(response) : 'No response'}`);
-		}
-	});
-}
-
-// --- Cookie Clearing Logic ---
-const clearedCookiesForTab = {}; // Stores tabId: Set<domain> for which cookies have been cleared
-
-async function clearCookiesForDomain(domain, tabId, source = 'Automatic') {
+// REWRITTEN to use browsingData API for robust clearing
+async function clearAllStorageForDomain(domain, source = 'Automatic') {
 	if (!domain) return;
+	logDebugMessage(`(${source}) Requesting comprehensive storage clear for ${domain}`);
 
-	// Normalize domain to account for common mismatches such as www. and leading dots.
-	const normalizedDomain = domain.startsWith('www.') ? domain.slice(4) : domain;
-
+	const origin = `https://${domain}`;
 	try {
-		const allCookies = await chrome.cookies.getAll({});
-		const cookies = allCookies.filter(cookie =>
-			cookie.domain.replace(/^\./, '') === normalizedDomain // Ensure consistent comparison
-		);
-		if (cookies.length === 0) {
-			logDebugMessage(`(${source}) No cookies found for domain: ${domain}`);
-			return;
-		}
-
-		let clearedCount = 0;
-		for (const cookie of cookies) {
-			const protocol = cookie.secure ? 'https://' : 'http://';
-			// The URL must be absolute and start with http/https.
-			const cookieDomain = cookie.domain.startsWith('.') ? cookie.domain.substring(1) : cookie.domain;
-			const url = protocol + cookieDomain + cookie.path;
-			try {
-				await chrome.cookies.remove({ url: url, name: cookie.name });
-				clearedCount++;
-				logDebugMessage(`(${source}) Cookie removed: ${cookie.name} (domain: ${cookie.domain}, path: ${cookie.path}, secure: ${cookie.secure}, httpOnly: ${cookie.httpOnly})`);
-			} catch (removeError) {
-				console.warn(`[AutoClear] Error removing cookie ${cookie.name} for URL ${url}:`, removeError);
-				logDebugMessage(`(${source}) Error removing cookie ${cookie.name} for URL ${url}: ${removeError.message}`, 'Error');
-			}
-		}
-
-		if (clearedCount > 0) {
-			logDebugMessage(`(${source}) Cleared ${clearedCount} cookie(s) for domain: ${domain}`);
-		}
-		// Mark cookies as cleared for this domain on this tab
-		if (tabId) {
-			if (!clearedCookiesForTab[tabId]) {
-				clearedCookiesForTab[tabId] = new Set();
-			}
-			clearedCookiesForTab[tabId].add(domain);
-		}
-
+		await chrome.browsingData.remove({
+			origins: [origin]
+		}, {
+			"cacheStorage": true,
+			"cookies": true,
+			"fileSystems": true,
+			"indexedDB": true,
+			"localStorage": true,
+			"serviceWorkers": true,
+			"webSQL": true
+		});
+		logDebugMessage(`(${source}) Successfully cleared storage for origin: ${origin}`);
+		return { success: true };
 	} catch (error) {
-		console.error(`[AutoClear] Error getting cookies for domain ${domain}:`, error);
-		logDebugMessage(`(${source}) Error getting cookies for ${domain}: ${error.message}`, 'Error');
+		logDebugMessage(`(${source}) Error clearing storage for origin ${origin}: ${error.message}`, 'Error');
+		return { success: false, error: error.message };
 	}
 }
-// --- End Cookie Clearing Logic ---
 
 // --- Event Handler Functions ---
 
+// REWRITTEN to clear when LEAVING a blacklisted domain
 async function handleTabUpdate(tabId, changeInfo, tab) {
 	await checkAndExpireTTLRules();
 
-	if (tab.active && (changeInfo.url || changeInfo.status === 'complete')) {
+	// Update badge for the current tab
+	if (tab.active) {
 		const domainForBadge = getDomainFromUrl(tab.url);
 		await updateIconBadge(domainForBadge);
 	}
 
-	let urlToProcess = null;
+	// If URL changed, check if we should clear storage for the *previous* domain
 	if (changeInfo.url) {
-		urlToProcess = changeInfo.url;
-	} else if (changeInfo.status === 'complete' && tab && tab.url) {
-		urlToProcess = tab.url;
-	}
-
-	if (urlToProcess) {
-		const domain = getDomainFromUrl(urlToProcess);
-		if (domain) {
-			if (await shouldClearForDomain(domain)) {
-				await clearAllStorageForDomain(domain, tabId, 'Automatic - Tab Update');
-
-				if (!clearedCookiesForTab[tabId] || !clearedCookiesForTab[tabId].has(domain) || changeInfo.url) {
-					if (changeInfo.url && clearedCookiesForTab[tabId]) {
-						clearedCookiesForTab[tabId].clear();
-					}
-					await clearCookiesForDomain(domain, tabId, 'Automatic - Tab Update');
-				}
-			} else {
-				if (clearedCookiesForTab[tabId]) {
-					clearedCookiesForTab[tabId].delete(domain);
+		const previousUrl = tabUrls[tabId];
+		if (previousUrl) {
+			const previousDomain = getDomainFromUrl(previousUrl);
+			if (previousDomain && previousDomain !== getDomainFromUrl(changeInfo.url)) {
+				if (await shouldClearForDomain(previousDomain)) {
+					await clearAllStorageForDomain(previousDomain, 'Automatic - Tab Navigation');
 				}
 			}
 		}
+		// Update the stored URL for the tab
+		tabUrls[tabId] = changeInfo.url;
 	}
 }
 
+// REWRITTEN to clear when CLOSING a blacklisted tab
 async function handleTabRemoval(tabId, removeInfo) {
 	await checkAndExpireTTLRules();
-	if (clearedCookiesForTab[tabId]) {
-		delete clearedCookiesForTab[tabId];
-		logDebugMessage(`Cleaned cookie clearing state for closed tab ${tabId}.`);
+	const closedUrl = tabUrls[tabId];
+	if (closedUrl) {
+		const closedDomain = getDomainFromUrl(closedUrl);
+		if (closedDomain && await shouldClearForDomain(closedDomain)) {
+			await clearAllStorageForDomain(closedDomain, 'Automatic - Tab Closed');
+		}
+		// Clean up the stored URL
+		delete tabUrls[tabId];
 	}
+	logDebugMessage(`Tab ${tabId} closed.`);
 }
 
+// REWRITTEN to only handle badge updates, not clearing
 async function handleTabActivation(activeInfo) {
 	await checkAndExpireTTLRules();
 	try {
@@ -261,12 +222,6 @@ async function handleTabActivation(activeInfo) {
 		if (tab && tab.url) {
 			const domain = getDomainFromUrl(tab.url);
 			await updateIconBadge(domain);
-
-			if (domain && await shouldClearForDomain(domain)) {
-				if (!clearedCookiesForTab[activeInfo.tabId] || !clearedCookiesForTab[activeInfo.tabId].has(domain)) {
-					await clearCookiesForDomain(domain, activeInfo.tabId, 'Automatic - Tab Activated');
-				}
-			}
 		} else {
 			await updateIconBadge(null);
 		}
@@ -377,23 +332,27 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
 
 	if (request.action === "manualClearCookies") {
 		(async () => {
-			if (request.domain) {
-				// For manual clear, tabId can be null as it's not tied to a specific tab's lifecycle for clearedCookiesForTab tracking
-				await clearCookiesForDomain(request.domain, null, 'Manual');
-				sendResponse({ status: "success", message: `Cookies cleared for ${request.domain}` });
+			if (request.domain) { // tabId is no longer needed
+				const result = await clearAllStorageForDomain(request.domain, 'Manual');
+				if (result.success) {
+					sendResponse({ status: "success", message: `All storage cleared for ${request.domain}` });
+				} else {
+					sendResponse({ status: "error", message: result.error || "Failed to clear storage" });
+				}
 			} else {
-				sendResponse({ status: "error", message: "No domain specified for cookie clearing." });
+				sendResponse({ status: "error", message: "No domain specified for clearing." });
 			}
 		})();
-		return true; // Indicates async response
+		return true;
 	}
+
 	// Return false or undefined if the message is not handled, or not handled asynchronously.
 	// This allows other listeners to process the message.
 	return false;
 });
 
 // Initialize on startup
-initializeDomainRules().then(async (rules) => { // Made the callback async
+initializeDomainRules().then(async (rules) => {
 	logDebugMessage('Domain rules initialized.', 'System');
 	await checkAndExpireTTLRules(); // Initial check on startup
 

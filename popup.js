@@ -8,7 +8,7 @@ const ttlValueInput = document.getElementById('ttl-value');
 const saveRuleButton = document.getElementById('save-rule-button');
 const statusMessage = document.getElementById('status-message');
 const currentRuleText = document.getElementById('current-rule-text');
-const clearCookiesNowButton = document.getElementById('clear-cookies-now-button');
+const clearStorageNowButton = document.getElementById('clear-cookies-now-button');
 
 // Global controls
 const globalEnableToggle = document.getElementById('global-enable-toggle');
@@ -60,7 +60,7 @@ function updatePerDomainControlsState() {
 	ruleModeSelect.disabled = disabled;
 	ttlValueInput.disabled = disabled || ruleModeSelect.value !== 'allow';
 	saveRuleButton.disabled = disabled;
-	clearCookiesNowButton.disabled = disabled; // Also disable this button
+	clearStorageNowButton.disabled = disabled; // Also disable this button
 
 	if (disabled) {
 		currentRuleText.textContent = 'Extension is globally disabled.';
@@ -75,7 +75,7 @@ function updatePerDomainControlsState() {
 	}
 	// Update clear cookies button based on current rule, if not globally disabled
 	if (!disabled && currentDomain) {
-		updateClearCookiesButtonState();
+		updateClearStorageButtonState();
 	}
 }
 
@@ -218,18 +218,18 @@ function disableControls(message) {
 	ruleModeSelect.disabled = true;
 	ttlValueInput.disabled = true;
 	saveRuleButton.disabled = true;
-	clearCookiesNowButton.disabled = true;
+	clearStorageNowButton.disabled = true;
 	currentRuleText.textContent = message || 'Controls disabled.';
 	statusMessage.textContent = '';
 }
 
-function updateClearCookiesButtonState() {
+function updateClearStorageButtonState() {
 	if (!extensionEnabled || !currentDomain) {
-		clearCookiesNowButton.disabled = true;
+		clearStorageNowButton.disabled = true;
 		return;
 	}
 	// Enable only if current rule mode is 'blacklist'
-	clearCookiesNowButton.disabled = ruleModeSelect.value !== 'blacklist';
+	clearStorageNowButton.disabled = ruleModeSelect.value !== 'blacklist';
 }
 
 function updateCurrentRuleDisplay(rule) {
@@ -255,7 +255,7 @@ function updateCurrentRuleDisplay(rule) {
 	} else {
 		currentRuleText.textContent = `Unknown rule state.`;
 	}
-	updateClearCookiesButtonState(); // Update button state whenever rule display changes
+	updateClearStorageButtonState(); // Update button state whenever rule display changes
 }
 
 async function loadDomainRule() {
@@ -320,7 +320,7 @@ async function loadDomainRule() {
 		updateCurrentRuleDisplay(null);
 		addDebugLog(`Error loading domain rule for ${currentDomain}: ${error.message}`, 'Error');
 	}
-	updateClearCookiesButtonState(); // Ensure button state is correct after loading rule
+	updateClearStorageButtonState(); // Ensure button state is correct after loading rule
 }
 
 // --- Stored Rules Summary Helper Functions ---
@@ -515,7 +515,7 @@ async function initCurrentDomainEditor() {
 		// Update button state based on current selection, not just saved rule
 		// This makes UI more responsive to user trying out 'blacklist'
 		if (extensionEnabled && currentDomain) {
-			clearCookiesNowButton.disabled = ruleModeSelect.value !== 'blacklist';
+			clearStorageNowButton.disabled = ruleModeSelect.value !== 'blacklist';
 		}
 	});
 
@@ -580,40 +580,43 @@ async function initCurrentDomainEditor() {
 			statusMessage.className = 'status-message error';
 			addDebugLog(`Error saving rule for ${currentDomain}: ${error.message}`, 'Error');
 		}
-		updateClearCookiesButtonState(); // Reflects saved rule
+		updateClearStorageButtonState(); // Reflects saved rule
 	});
 
-	clearCookiesNowButton.addEventListener('click', async () => {
+	clearStorageNowButton.addEventListener('click', async () => {
 		// Check against the *currently selected* mode in the UI, not just the saved one.
 		// This allows clearing if user selects 'blacklist' even before saving.
 		if (!extensionEnabled || !currentDomain || ruleModeSelect.value !== 'blacklist') {
-			statusMessage.textContent = 'Can only clear cookies if domain is blacklisted (select Blacklist mode).';
+			statusMessage.textContent = 'Can only clear storage if domain is blacklisted (select Blacklist mode).';
 			statusMessage.className = 'status-message error';
-			addDebugLog('Manual cookie clear attempted but conditions not met (domain not blacklisted in UI).', 'Warn');
+			addDebugLog('Manual storage clear attempted but conditions not met (domain not blacklisted in UI).', 'Warn');
 			setTimeout(() => { statusMessage.textContent = ''; statusMessage.className = 'status-message'; }, 3000);
 			return;
 		}
 
-		addDebugLog(`Manual cookie clear requested for ${currentDomain}.`);
-		statusMessage.textContent = `Clearing cookies for ${currentDomain}...`;
+		addDebugLog(`Manual storage clear requested for ${currentDomain}.`);
+		statusMessage.textContent = `Clearing all storage for ${currentDomain}...`;
 		statusMessage.className = 'status-message info';
 
 		try {
-			const response = await chrome.runtime.sendMessage({ action: "manualClearCookies", domain: currentDomain });
+			const response = await chrome.runtime.sendMessage({
+				action: "manualClearCookies",
+				domain: currentDomain
+			});
 			if (response && response.status === 'success') {
-				statusMessage.textContent = `Cookies for ${currentDomain} cleared successfully.`;
+				statusMessage.textContent = `All storage for ${currentDomain} cleared successfully.`;
 				statusMessage.className = 'status-message success';
-				addDebugLog(`Manual cookie clear successful for ${currentDomain}.`);
+				addDebugLog(`Manual storage clear successful for ${currentDomain}.`);
 			} else {
-				statusMessage.textContent = `Failed to clear cookies: ${response ? response.message : 'No response'}`;
+				statusMessage.textContent = `Failed to clear storage: ${response ? response.message : 'No response'}`;
 				statusMessage.className = 'status-message error';
-				addDebugLog(`Manual cookie clear failed for ${currentDomain}: ${response ? response.message : 'No response'}`, 'Error');
+				addDebugLog(`Manual storage clear failed for ${currentDomain}: ${response ? response.message : 'No response'}`, 'Error');
 			}
 		} catch (error) {
-			console.error('Error sending manualClearCookies message:', error);
-			statusMessage.textContent = 'Error sending request to clear cookies.';
+			console.error('Error sending manual clear message:', error);
+			statusMessage.textContent = 'Error sending request to clear storage.';
 			statusMessage.className = 'status-message error';
-			addDebugLog(`Error sending manualClearCookies message: ${error.message}`, 'Error');
+			addDebugLog(`Error sending manual clear message: ${error.message}`, 'Error');
 		}
 
 		setTimeout(() => {
@@ -679,4 +682,5 @@ document.addEventListener('DOMContentLoaded', async () => {
 
 	// Initialize stored rules summary, which also depends on global state
 	await initStoredRulesSummary();
+});
 });
