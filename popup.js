@@ -683,4 +683,3 @@ document.addEventListener('DOMContentLoaded', async () => {
 	// Initialize stored rules summary, which also depends on global state
 	await initStoredRulesSummary();
 });
-});
