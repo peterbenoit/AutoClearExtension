@@ -1,43 +1,46 @@
 // content.js
 
 // All clearing logic is now handled by the background script using the chrome.browsingData API.
-// This content script is no longer needed for clearing storage.
-// It is kept to prevent breaking manifest.json references, but its functionality has been moved.
-const cookies = document.cookie.split(";");
+// This content script is now simplified to just clear items accessible from the page context,
+// which complements the background script's broader clearing capabilities.
 
-cookies.forEach(cookie => {
-	const eqPos = cookie.indexOf("=");
-	const name = eqPos > -1 ? cookie.substr(0, eqPos).trim() : cookie.trim();
+function clearAllCookies() {
+	try {
+		const cookies = document.cookie.split(";");
 
-	if (name) {
-		// Clear for current domain
-		document.cookie = `${name}=; expires=Thu, 01 Jan 1970 00:00:00 GMT; path=/`;
-		// Clear for parent domain (if subdomain)
-		const domain = window.location.hostname;
-		const parts = domain.split('.');
-		if (parts.length > 2) {
-			const parentDomain = '.' + parts.slice(-2).join('.');
-			document.cookie = `${name}=; expires=Thu, 01 Jan 1970 00:00:00 GMT; path=/; domain=${parentDomain}`;
+		cookies.forEach(cookie => {
+			const eqPos = cookie.indexOf("=");
+			const name = eqPos > -1 ? cookie.substr(0, eqPos).trim() : cookie.trim();
+
+			if (name) {
+				// Clear for current domain
+				document.cookie = `${name}=; expires=Thu, 01 Jan 1970 00:00:00 GMT; path=/`;
+				// Clear for parent domain (if subdomain)
+				const domain = window.location.hostname;
+				const parts = domain.split('.');
+				if (parts.length > 2) {
+					const parentDomain = '.' + parts.slice(-2).join('.');
+					document.cookie = `${name}=; expires=Thu, 01 Jan 1970 00:00:00 GMT; path=/; domain=${parentDomain}`;
+				}
+			}
+		});
+
+		if (typeof chrome.runtime.sendMessage === 'function') {
+			chrome.runtime.sendMessage({
+				type: 'log-debug-to-storage',
+				message: `Cleared ${cookies.length} cookies via document.cookie`,
+				source: 'Content Script'
+			});
+		}
+	} catch (error) {
+		if (typeof chrome.runtime.sendMessage === 'function') {
+			chrome.runtime.sendMessage({
+				type: 'log-debug-to-storage',
+				message: `Error clearing cookies: ${error}`,
+				source: 'Content Script - Error'
+			});
 		}
 	}
-});
-
-if (typeof chrome.runtime.sendMessage === 'function') {
-	chrome.runtime.sendMessage({
-		type: 'log-debug-to-storage',
-		message: `Cleared ${cookies.length} cookies via document.cookie`,
-		source: 'Content Script'
-	});
-}
-	} catch (error) {
-	if (typeof chrome.runtime.sendMessage === 'function') {
-		chrome.runtime.sendMessage({
-			type: 'log-debug-to-storage',
-			message: `Error clearing cookies: ${error}`,
-			source: 'Content Script - Error'
-		});
-	}
-}
 }
 
 function clearLocalStorage() {
